@@ -77,38 +77,37 @@
         <a-entity camera look-controls-enabled="false"></a-entity>
     </a-scene>
 
-    <!-- UI 컨트롤 패널 -->
-    <div id="ui-controls">
-        <div class="control-panel">
-            <h3>교회 변천사</h3>
-            <div class="timeline-controls">
-                <button id="prev-btn" class="timeline-btn" disabled>
-                    ← 이전
-                </button>
-                <span id="current-year">1984년</span>
-                <button id="next-btn" class="timeline-btn">
-                    다음 →
-                </button>
-            </div>
-            <button id="capture-btn" class="capture-btn">
-                📷 사진 촬영
-            </button>
-        </div>
+    <!-- App Title (Top Center) -->
+    <div id="app-title" class="glass-subtle">
+        <div class="app-title-content">온누리교회 40주년 AR</div>
     </div>
 
-    <!-- 정보 패널 -->
-    <div id="info-panel">
+    <!-- Primary Action - Photo Capture (Right Side) -->
+    <div id="primary-action">
+        <button id="capture-btn" class="capture-button glass-primary">
+            <span>📷</span>
+        </button>
+    </div>
+
+    <!-- AR Status Indicator (Bottom Left) -->
+    <div id="ar-status" class="glass-subtle">
+        <div class="status-indicator scanning"></div>
+        <span class="status-text">마커를 찾는 중...</span>
+    </div>
+
+    <!-- Info Panel (Bottom Center) - Shows when marker detected -->
+    <div id="info-panel" class="glass-primary">
         <div class="info-content">
-            <h4 id="period-title">교회 설립</h4>
+            <h4 id="period-title">온누리교회 40주년</h4>
             <p id="period-description">
-                온누리교회가 하나님의 은혜 가운데 첫 걸음을 내딛었습니다.
+                마커를 인식하면 교회의 역사를 AR로 체험할 수 있습니다.
             </p>
         </div>
     </div>
 
-    <!-- 마커 가이드 -->
+    <!-- AR Guide Modal -->
     <div id="marker-guide">
-        <div class="guide-content">
+        <div class="guide-content glass-primary">
             <h3>AR 체험 방법</h3>
             <p>1. 카메라 권한을 허용해주세요</p>
             <p>2. Hiro 마커를 카메라에 비춰보세요</p>
@@ -140,17 +139,51 @@
             });
         });
 
+        // AR Status Management
+        function updateARStatus(status, text) {
+            const indicator = document.querySelector('.status-indicator');
+            const statusText = document.querySelector('.status-text');
+            
+            // Remove all status classes
+            indicator.classList.remove('scanning', 'error');
+            
+            // Add new status class
+            if (status !== 'found') {
+                indicator.classList.add(status);
+            }
+            
+            statusText.textContent = text;
+        }
+
         // AR 마커 감지 이벤트
         AFRAME.registerComponent('marker-handler', {
             init: function() {
                 this.el.addEventListener('markerFound', function() {
                     console.log('마커를 찾았습니다!');
-                    document.getElementById('info-panel').style.display = 'block';
+                    
+                    // Update AR status
+                    updateARStatus('found', '마커 인식됨');
+                    
+                    // Show info panel with animation
+                    const infoPanel = document.getElementById('info-panel');
+                    infoPanel.style.display = 'block';
+                    infoPanel.classList.add('spring-enter');
+                    
+                    // Update info content for detected marker
+                    document.getElementById('period-title').textContent = '교회 설립 (1984년)';
+                    document.getElementById('period-description').textContent = '온누리교회가 하나님의 은혜 가운데 첫 걸음을 내딛었습니다. AR로 교회의 성장 과정을 체험해보세요.';
                 });
 
                 this.el.addEventListener('markerLost', function() {
                     console.log('마커를 잃었습니다.');
-                    document.getElementById('info-panel').style.display = 'none';
+                    
+                    // Update AR status
+                    updateARStatus('scanning', '마커를 찾는 중...');
+                    
+                    // Hide info panel
+                    const infoPanel = document.getElementById('info-panel');
+                    infoPanel.style.display = 'none';
+                    infoPanel.classList.remove('spring-enter');
                 });
             }
         });

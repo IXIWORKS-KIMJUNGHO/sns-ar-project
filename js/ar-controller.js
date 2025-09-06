@@ -5,8 +5,6 @@
 
 class ARController {
     constructor() {
-        this.currentPeriod = 0;
-        this.timeline = [];
         this.isMarkerVisible = false;
         this.churchObject = null;
         this.infoText = null;
@@ -25,9 +23,6 @@ class ARController {
             setTimeout(() => this.init(), 100);
             return;
         }
-
-        // Setup default timeline data
-        this.setupDefaultTimeline();
         
         // Setup event listeners when DOM is ready
         if (document.readyState === 'loading') {
@@ -41,56 +36,25 @@ class ARController {
     }
 
     /**
-     * Setup default timeline data
+     * Setup church data
      */
-    setupDefaultTimeline() {
-        this.timeline = [
-            {
-                year: "1984",
-                title: "Church Founding",
-                description: "Onnuri Church took its first steps in God's grace.",
-                color: "#8B4513",
-                scale: "1 1 1"
-            },
-            {
-                year: "1995", 
-                title: "New Sanctuary Construction",
-                description: "A new sanctuary was built for more congregants.",
-                color: "#CD853F",
-                scale: "1.2 1.5 1.2"
-            },
-            {
-                year: "2010",
-                title: "Education Building Expansion",
-                description: "Educational space for the next generation was expanded.",
-                color: "#DEB887",
-                scale: "1.5 1.8 1.5"
-            },
-            {
-                year: "2024",
-                title: "Present Day",
-                description: "The current state of Onnuri Church after 40 years of growth.",
-                color: "#F4A460", 
-                scale: "2 2 2"
-            }
-        ];
+    setupChurchData() {
+        this.churchData = {
+            title: "온누리교회 40주년",
+            description: "1984년 설립되어 40년간 성장해온 온누리교회의 역사를 AR로 체험해보세요.",
+            color: "#8B4513",
+            scale: "1 1 1"
+        };
 
-        console.log('Timeline data loaded:', this.timeline.length, 'periods');
+        console.log('Church data loaded');
     }
 
     /**
      * Setup event listeners
      */
     setupEventListeners() {
-        // Timeline navigation buttons
-        const prevBtn = document.getElementById('prev-btn');
-        const nextBtn = document.getElementById('next-btn');
-
-        if (prevBtn) prevBtn.addEventListener('click', () => this.previousPeriod());
-        if (nextBtn) nextBtn.addEventListener('click', () => this.nextPeriod());
-
-        // Update UI
-        this.updateUI();
+        // Setup church data
+        this.setupChurchData();
 
         console.log('Event listeners setup complete');
     }
@@ -113,7 +77,7 @@ class ARController {
             
             if (this.churchObject && this.infoText) {
                 console.log('3D object references complete');
-                this.updateChurchModel();
+                this.initializeChurchModel();
             }
         });
 
@@ -159,109 +123,42 @@ class ARController {
     }
 
     /**
-     * Move to previous period
+     * Initialize church 3D model
      */
-    previousPeriod() {
-        if (this.currentPeriod > 0) {
-            this.currentPeriod--;
-            this.updateChurchModel();
-            this.updateUI();
-            console.log('Previous period:', this.timeline[this.currentPeriod].year);
-        }
+    initializeChurchModel() {
+        if (!this.churchObject || !this.infoText || !this.churchData) return;
+
+        // Set initial 3D object properties
+        this.churchObject.setAttribute('material', `color: ${this.churchData.color}; roughness: 0.8`);
+        this.churchObject.setAttribute('scale', this.churchData.scale);
+        
+        // Set info text
+        this.infoText.setAttribute('value', `${this.churchData.title}\n1984-2024`);
+
+        console.log('Church 3D model initialized');
     }
 
     /**
-     * Move to next period
+     * Load external church data (future implementation)
      */
-    nextPeriod() {
-        if (this.currentPeriod < this.timeline.length - 1) {
-            this.currentPeriod++;
-            this.updateChurchModel();
-            this.updateUI();
-            console.log('Next period:', this.timeline[this.currentPeriod].year);
-        }
-    }
-
-    /**
-     * Update church 3D model
-     */
-    updateChurchModel() {
-        if (!this.churchObject || !this.infoText) return;
-
-        const currentData = this.timeline[this.currentPeriod];
-        
-        // Update 3D object properties (box color and size)
-        this.churchObject.setAttribute('material', `color: ${currentData.color}; roughness: 0.8`);
-        this.churchObject.setAttribute('scale', currentData.scale);
-        
-        // Update info text
-        this.infoText.setAttribute('value', `${currentData.title}\n${currentData.year}`);
-        
-        // Smooth transition animation
-        this.churchObject.setAttribute('animation', `
-            property: scale; 
-            to: ${currentData.scale}; 
-            dur: 800; 
-            easing: easeInOutQuad
-        `);
-
-        console.log(`3D model updated: ${currentData.year} - ${currentData.title}`);
-    }
-
-    /**
-     * Update UI (button states, text, etc.)
-     */
-    updateUI() {
-        const currentData = this.timeline[this.currentPeriod];
-        
-        // Display current year
-        const currentYearElement = document.getElementById('current-year');
-        if (currentYearElement) {
-            currentYearElement.textContent = currentData.year;
-        }
-
-        // Update info panel content
-        const periodTitle = document.getElementById('period-title');
-        const periodDescription = document.getElementById('period-description');
-        
-        if (periodTitle) periodTitle.textContent = currentData.title;
-        if (periodDescription) periodDescription.textContent = currentData.description;
-
-        // Enable/disable buttons
-        const prevBtn = document.getElementById('prev-btn');
-        const nextBtn = document.getElementById('next-btn');
-        
-        if (prevBtn) {
-            prevBtn.disabled = this.currentPeriod === 0;
-        }
-        
-        if (nextBtn) {
-            nextBtn.disabled = this.currentPeriod === this.timeline.length - 1;
-        }
-    }
-
-    /**
-     * Load external timeline.json file (future implementation)
-     */
-    async loadTimelineFromJSON() {
+    async loadChurchDataFromJSON() {
         try {
-            const response = await fetch('data/timeline.json');
+            const response = await fetch('data/church.json');
             if (response.ok) {
                 const data = await response.json();
-                if (data.periods && Array.isArray(data.periods)) {
-                    this.timeline = data.periods;
-                    this.updateUI();
-                    this.updateChurchModel();
-                    console.log('External timeline data loaded successfully');
+                if (data.church) {
+                    this.churchData = data.church;
+                    this.initializeChurchModel();
+                    console.log('External church data loaded successfully');
                 }
             }
         } catch (error) {
-            console.log('External timeline load failed, using default data:', error.message);
+            console.log('External church data load failed, using default data:', error.message);
         }
     }
 
     /**
-     * Screenshot capture function (future implementation)
+     * Screenshot capture function
      */
     captureScreenshot() {
         try {
@@ -272,16 +169,37 @@ class ARController {
                 
                 // Create download link
                 const link = document.createElement('a');
-                link.download = `Onnuri_Church_${this.timeline[this.currentPeriod].year}.png`;
+                link.download = `Onnuri_Church_AR_${new Date().getTime()}.png`;
                 link.href = dataURL;
                 link.click();
                 
                 console.log('Screenshot saved successfully');
+                
+                // Show success feedback
+                this.showCaptureSuccess();
             }
         } catch (error) {
             console.error('Screenshot capture failed:', error);
-            alert('Screenshot function encountered an issue.');
+            alert('스크린샷 기능에 문제가 발생했습니다.');
         }
+    }
+
+    /**
+     * Show capture success feedback
+     */
+    showCaptureSuccess() {
+        const captureBtn = document.getElementById('capture-btn');
+        const originalContent = captureBtn.innerHTML;
+        
+        // Temporarily change button content
+        captureBtn.innerHTML = '<span>✅</span>';
+        captureBtn.style.background = '#34C759';
+        
+        // Reset after 1 second
+        setTimeout(() => {
+            captureBtn.innerHTML = originalContent;
+            captureBtn.style.background = '';
+        }, 1000);
     }
 }
 
@@ -292,13 +210,15 @@ let arController;
 document.addEventListener('DOMContentLoaded', function() {
     arController = new ARController();
     
-    // Screenshot button event (to be implemented later)
+    // Screenshot button event
     const captureBtn = document.getElementById('capture-btn');
     if (captureBtn) {
         captureBtn.addEventListener('click', function() {
-            // Currently shows alert only, actual capture function to be implemented
-            alert('Screenshot feature coming soon!');
-            // arController.captureScreenshot();
+            if (arController && arController.isMarkerVisible) {
+                arController.captureScreenshot();
+            } else {
+                alert('마커를 인식한 후 사진을 촬영할 수 있습니다.');
+            }
         });
     }
 });
