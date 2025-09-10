@@ -1,0 +1,62 @@
+# Auto detect text files and perform LF normalization
+* text=auto
+
+# Web files
+*.html text eol=lf
+*.css text eol=lf
+*.js text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+
+# AR.js specific files
+*.patt text eol=lf
+*.txt text eol=lf
+
+# 3D model files (binary)
+*.glb binary
+*.gltf text eol=lf
+*.obj text eol=lf
+*.mtl text eol=lf
+*.fbx binary
+*.blend binary
+
+# Image files (binary)
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.svg text eol=lf
+
+# Audio/Video files (binary)
+*.mp3 binary
+*.mp4 binary
+*.wav binary
+*.ogg binary
+*.webm binary
+
+# Archive files (binary)
+*.zip binary
+*.tar binary
+*.gz binary
+*.rar binary
+*.7z binary
+
+# Font files (binary)
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.eot binary
+
+# Preserve original line endings for specific files
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Linguist overrides for GitHub language detection
+*.patt linguist-language=Text
+data/ linguist-vendored
+assets/lib/ linguist-vendored
