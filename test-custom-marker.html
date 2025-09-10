@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>커스텀 마커 테스트</title>
+    
+    <!-- AR.js와 A-Frame 라이브러리 로드 -->
+    <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.4.5/aframe/build/aframe-ar.min.js"></script>
+    
+    <!-- 스타일시트 -->
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+
+<body>
+    <!-- AR 장면 - 커스텀 마커 버전 -->
+    <a-scene 
+        embedded 
+        arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;"
+        vr-mode-ui="enabled: false"
+        device-orientation-permission-ui="enabled: false">
+        
+        <!-- 자산들 미리 로드 -->
+        <a-assets>
+            <!-- 3D 모델들 -->
+            <a-asset-item id="church-model" src="assets/models/church-current.glb"></a-asset-item>
+        </a-assets>
+
+        <!-- 커스텀 마커 (패턴 파일 업로드 후 사용) -->
+        <!--
+        <a-marker 
+            type="pattern" 
+            url="assets/markers/onnuri-church.patt"
+            id="custom-marker"
+            raycaster="objects: .clickable"
+            emitevents="true">
+        -->
+        
+        <!-- 임시로 Hiro 마커 유지 -->
+        <a-marker 
+            preset="hiro" 
+            id="main-marker"
+            raycaster="objects: .clickable"
+            emitevents="true">
+            
+            <!-- 3D 교회 모델 -->
+            <a-box 
+                id="church-object"
+                position="0 0.5 0" 
+                rotation="0 45 0"
+                scale="1 1 1"
+                material="color: #8B4513; roughness: 0.8"
+                animation="property: rotation; to: 0 405 0; loop: true; dur: 10000"
+                class="clickable">
+            </a-box>
+            
+            <!-- 정보 텍스트 -->
+            <a-text 
+                id="info-text"
+                value="온누리교회 커스텀 마커&#10;테스트 중..."
+                position="0 2 0"
+                align="center"
+                color="#FFFFFF"
+                shader="msdf"
+                font="roboto">
+            </a-text>
+        </a-marker>
+
+        <!-- 카메라 -->
+        <a-entity camera look-controls-enabled="false"></a-entity>
+    </a-scene>
+
+    <!-- UI 요소들 (기존과 동일) -->
+    <div id="app-title" class="glass-subtle">
+        <div class="app-title-content">커스텀 마커 테스트</div>
+    </div>
+
+    <div id="primary-action">
+        <button id="capture-btn" class="capture-button glass-primary">
+            <span class="camera-icon">📷</span>
+        </button>
+    </div>
+
+    <div id="ar-status" class="glass-subtle">
+        <div class="status-indicator scanning"></div>
+        <span class="status-text">마커를 찾는 중...</span>
+    </div>
+
+    <!-- 커스텀 마커 안내 -->
+    <div id="marker-guide">
+        <div class="guide-content glass-primary">
+            <h3>커스텀 마커 설정 방법</h3>
+            <p>1. https://jeromeetienne.github.io/AR.js/three.js/examples/marker-training/examples/generator.html 에서 마커 생성</p>
+            <p>2. 생성된 .patt 파일을 assets/markers/ 폴더에 저장</p>
+            <p>3. HTML에서 preset="hiro"를 type="pattern" url="경로"로 변경</p>
+            <p>현재는 테스트를 위해 Hiro 마커를 사용 중입니다.</p>
+            <button id="close-guide">확인</button>
+        </div>
+    </div>
+
+    <!-- JavaScript 파일들 로드 -->
+    <script src="js/ar-controller.js"></script>
+
+    <script>
+        // 기본 초기화 코드
+        document.addEventListener('DOMContentLoaded', function() {
+            // 가이드 패널 닫기
+            document.getElementById('close-guide').addEventListener('click', function() {
+                document.getElementById('marker-guide').style.display = 'none';
+            });
+
+            // 사진 촬영 기능
+            document.getElementById('capture-btn').addEventListener('click', function() {
+                if (window.arController && window.arController.isMarkerVisible) {
+                    window.arController.captureScreenshot();
+                } else {
+                    alert('마커를 인식한 후 사진을 촬영할 수 있습니다.');
+                }
+            });
+        });
+
+        // 마커에 컴포넌트 추가
+        document.querySelector('#main-marker').setAttribute('marker-handler', '');
+    </script>
+</body>
+</html>
