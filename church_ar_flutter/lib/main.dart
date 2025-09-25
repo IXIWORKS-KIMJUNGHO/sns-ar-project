@@ -75,9 +75,7 @@ class _ARHomePageState extends State<ARHomePage> with TickerProviderStateMixin {
   void _onARButtonPressed() {
     debugPrint('🚀 AR 버튼 클릭됨');
 
-    // AR 모드 시작 - iframe에 메시지 전송
-    _modelViewerKey.currentState?.sendMessageToIframe({'type': 'startAR'});
-
+    // 🚀 Pure Flutter model_viewer_plus가 AR 모드를 자동으로 처리
     setState(() {
       _isArMode = true;
     });
@@ -86,12 +84,7 @@ class _ARHomePageState extends State<ARHomePage> with TickerProviderStateMixin {
   void _onPlacementButtonPressed() {
     debugPrint('📍 배치 버튼 클릭됨');
 
-    // 모델 배치 - iframe에 메시지 전송
-    _modelViewerKey.currentState?.sendMessageToIframe({
-      'type': 'placeModel',
-      'x': MediaQuery.of(context).size.width / 2,
-      'y': MediaQuery.of(context).size.height / 2,
-    });
+    // 🚀 Pure Flutter 구현에서는 자동 배치 처리
 
     setState(() {
       _isPlacementMode = false;

@@ -351,21 +351,18 @@ class _ARControlsWidgetState extends State<ARControlsWidget>
   }
 
   void _sendArButtonMessage() {
-    // Model Viewer iframe에 AR 시작 메시지 전송
+    // 🚀 Pure Flutter model_viewer_plus가 AR을 자동으로 처리
     final modelViewerState = widget.modelViewerKey.currentState;
     if (modelViewerState != null) {
-      // ModelViewer의 sendMessage 메서드를 통해 iframe에 메시지 전송
-      debugPrint('🚀 AR 버튼 클릭 - iframe에 startAR 메시지 전송');
-      // 실제 메시지 전송은 model_viewer_widget_web.dart에서 처리
+      debugPrint('🚀 AR 버튼 클릭 - Pure Flutter 구현');
     }
   }
 
   void _sendPlacementMessage() {
-    // Model Viewer iframe에 배치 메시지 전송
+    // 🚀 Pure Flutter 구현에서는 자동 배치
     final modelViewerState = widget.modelViewerKey.currentState;
     if (modelViewerState != null) {
-      debugPrint('📍 배치 버튼 클릭 - iframe에 placeModel 메시지 전송');
-      // 실제 메시지 전송은 model_viewer_widget_web.dart에서 처리
+      debugPrint('📍 배치 버튼 클릭 - Pure Flutter 구현');
     }
   }
 }
