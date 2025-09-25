@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>8th Wall 없이 AR (Model Viewer)</title>
+    
+    <!-- Google Model Viewer - 완전 무료, App Key 불필요! -->
+    <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.3.0/model-viewer.min.js"></script>
+    
+    <style>
+        body {
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        model-viewer {
+            width: 100%;
+            height: 100%;
+        }
+        
+        .ar-button {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 15px 30px;
+            background: white;
+            border: none;
+            border-radius: 30px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Model Viewer - App Key 필요 없음! -->
+    <model-viewer
+        src="assets/models/church-model.glb"
+        alt="교회 3D 모델"
+        camera-controls
+        touch-action="pan-y"
+        auto-rotate
+        ar
+        ar-modes="webxr scene-viewer quick-look"
+        ar-scale="fixed">
+        
+        <button slot="ar-button" class="ar-button">
+            📱 AR로 보기 (App Key 불필요!)
+        </button>
+    </model-viewer>
+
+    <script>
+        console.log('✅ Model Viewer AR - App Key 없이 작동!');
+        
+        // Android: WebXR 사용
+        // iOS: Quick Look 사용
+        // 둘 다 App Key 불필요!
+    </script>
+
+</body>
+</html>

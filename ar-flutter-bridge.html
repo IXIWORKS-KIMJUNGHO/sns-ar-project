@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>온누리교회 AR - Flutter 통합</title>
+
+    <!-- Google Model Viewer -->
+    <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.3.0/model-viewer.min.js"></script>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            overflow: hidden;
+        }
+
+        /* Flutter WebView에서 사용할 수 있도록 최적화된 스타일 */
+        .flutter-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            background: rgba(255,255,255,0.95);
+            backdrop-filter: blur(20px);
+            padding: 15px;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            color: #333;
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        model-viewer {
+            width: 100%;
+            flex: 1;
+            --poster-color: transparent;
+        }
+
+        /* Flutter 메시지 상태 표시 */
+        .flutter-status {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            z-index: 1000;
+            display: none;
+        }
+
+        .flutter-status.connected {
+            background: rgba(76, 175, 80, 0.8);
+        }
+
+        /* 간소화된 AR 컨트롤 (Flutter에서 제어) */
+        .ar-controls {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+            z-index: 1000;
+        }
+
+        .ar-button {
+            background: rgba(255,255,255,0.15);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 20px;
+            padding: 12px 20px;
+            color: white;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .ar-button:hover {
+            background: rgba(255,255,255,0.25);
+        }
+
+        .ar-button.hidden {
+            display: none;
+        }
+
+        /* 배치 관련 UI - 최소화 */
+        .placement-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 999;
+        }
+
+        .hit-indicator {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            border: 2px solid #4CAF50;
+            border-radius: 50%;
+            background: rgba(76, 175, 80, 0.3);
+            transform: translate(-50%, -50%);
+            animation: hitPulse 1.5s infinite;
+        }
+
+        @keyframes hitPulse {
+            0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+            50% { transform: translate(-50%, -50%) scale(1.2); opacity: 0.7; }
+            100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+        }
+
+        /* 간단한 상태 메시지 */
+        .status-message {
+            position: fixed;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 15px;
+            font-size: 12px;
+            display: none;
+            z-index: 1001;
+        }
+
+        .status-message.show {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translate(-50%, 20px); }
+            to { opacity: 1; transform: translate(-50%, 0); }
+        }
+    </style>
+</head>
+<body>
+    <div class="flutter-container">
+        <div class="header">
+            <h1>🏛️ 온누리교회 AR</h1>
+        </div>
+
+        <model-viewer
+            id="church-model"
+            src="assets/models/church-model.glb"
+            alt="온누리교회 3D 모델"
+            camera-controls
+            touch-action="pan-y"
+            ar
+            ar-modes="webxr scene-viewer quick-look"
+            ar-scale="fixed"
+            ar-placement="none"
+            shadow-intensity="1"
+            exposure="1">
+
+            <button slot="ar-button" style="display: none;"></button>
+        </model-viewer>
+
+        <!-- Flutter 연결 상태 -->
+        <div id="flutter-status" class="flutter-status">
+            📱 Flutter 연결됨
+        </div>
+
+        <!-- AR 컨트롤 (Flutter에서 숨길 수 있음) -->
+        <div id="ar-controls" class="ar-controls">
+            <button id="start-ar-btn" class="ar-button">
+                📱 AR 시작
+            </button>
+        </div>
+
+        <!-- 배치 오버레이 -->
+        <div id="placement-overlay" class="placement-overlay"></div>
+
+        <!-- 상태 메시지 -->
+        <div id="status-message" class="status-message"></div>
+    </div>
+
+    <script>
+        class FlutterARBridge {
+            constructor() {
+                this.modelViewer = document.getElementById('church-model');
+                this.startArBtn = document.getElementById('start-ar-btn');
+                this.flutterStatus = document.getElementById('flutter-status');
+                this.placementOverlay = document.getElementById('placement-overlay');
+                this.statusMessage = document.getElementById('status-message');
+
+                // 상태 관리
+                this.isARActive = false;
+                this.isPlacementMode = false;
+                this.isFlutterConnected = false;
+                this.hitTestPoints = [];
+
+                this.init();
+            }
+
+            init() {
+                // Flutter 연결 감지
+                this.detectFlutterConnection();
+
+                // 기본 이벤트 설정
+                this.startArBtn.addEventListener('click', () => {
+                    this.startAR();
+                });
+
+                // Model Viewer 이벤트
+                this.modelViewer.addEventListener('ar-status', (event) => {
+                    this.handleARStatus(event.detail.status);
+                });
+
+                // 배치를 위한 터치 이벤트
+                this.modelViewer.addEventListener('click', (event) => {
+                    if (this.isPlacementMode) {
+                        this.handlePlacementTouch(event);
+                    }
+                });
+
+                // Flutter 메시지 리스너 설정
+                this.setupFlutterMessageHandlers();
+
+                console.log('✅ Flutter AR Bridge Initialized');
+            }
+
+            detectFlutterConnection() {
+                // Flutter WebView 환경 감지
+                if (window.flutter_inappwebview || window.flutter || navigator.userAgent.includes('Flutter')) {
+                    this.isFlutterConnected = true;
+                    this.flutterStatus.classList.add('connected');
+                    this.flutterStatus.style.display = 'block';
+                    this.sendToFlutter('bridge_connected', { status: 'ready' });
+                } else {
+                    // 웹 브라우저에서의 테스트 환경
+                    setTimeout(() => {
+                        this.isFlutterConnected = true;
+                        this.flutterStatus.classList.add('connected');
+                        this.flutterStatus.style.display = 'block';
+                        console.log('🔧 Test mode - Flutter bridge simulated');
+                    }, 1000);
+                }
+            }
+
+            setupFlutterMessageHandlers() {
+                // Flutter → WebView 메시지 수신
+                window.addEventListener('message', (event) => {
+                    this.handleFlutterMessage(event.data);
+                });
+
+                // Flutter InAppWebView 핸들러
+                if (window.flutter_inappwebview) {
+                    window.flutter_inappwebview.callHandler = (action, data) => {
+                        this.handleFlutterAction(action, data);
+                    };
+                }
+            }
+
+            handleFlutterMessage(messageData) {
+                try {
+                    const message = typeof messageData === 'string' ? JSON.parse(messageData) : messageData;
+                    this.handleFlutterAction(message.action, message.data);
+                } catch (error) {
+                    console.error('Flutter message parsing error:', error);
+                }
+            }
+
+            handleFlutterAction(action, data) {
+                console.log(`📱 Flutter Action: ${action}`, data);
+
+                switch (action) {
+                    case 'start_ar':
+                        this.startAR();
+                        break;
+                    case 'enable_placement':
+                        this.enablePlacementMode();
+                        break;
+                    case 'disable_placement':
+                        this.disablePlacementMode();
+                        break;
+                    case 'reset_ar':
+                        this.resetAR();
+                        break;
+                    case 'hide_controls':
+                        this.hideControls();
+                        break;
+                    case 'show_controls':
+                        this.showControls();
+                        break;
+                    case 'update_model':
+                        this.updateModel(data.modelUrl);
+                        break;
+                    case 'simulate_placement':
+                        this.simulatePlacement(data.x, data.y);
+                        break;
+                }
+            }
+
+            sendToFlutter(action, data = {}) {
+                const message = {
+                    action: action,
+                    data: data,
+                    timestamp: Date.now()
+                };
+
+                // Flutter InAppWebView로 메시지 전송
+                if (window.flutter_inappwebview && window.flutter_inappwebview.postMessage) {
+                    window.flutter_inappwebview.postMessage(JSON.stringify(message));
+                }
+
+                // 일반 postMessage (부모 프레임으로)
+                if (window.parent !== window) {
+                    window.parent.postMessage(message, '*');
+                }
+
+                console.log(`📤 To Flutter: ${action}`, data);
+            }
+
+            async startAR() {
+                try {
+                    this.showStatus('AR 세션 시작 중...');
+                    this.sendToFlutter('ar_starting');
+
+                    await this.modelViewer.activateAR();
+                    this.startArBtn.classList.add('hidden');
+
+                } catch (error) {
+                    console.error('AR 시작 실패:', error);
+                    this.showStatus('AR 시작 실패');
+                    this.sendToFlutter('ar_failed', { error: error.message });
+                }
+            }
+
+            handleARStatus(status) {
+                console.log('📱 AR Status:', status);
+                this.sendToFlutter('ar_status_changed', { status: status });
+
+                switch (status) {
+                    case 'session-started':
+                        this.onARSessionStart();
+                        break;
+                    case 'object-placed':
+                        this.onObjectPlaced();
+                        break;
+                    case 'failed':
+                        this.onARFailed();
+                        break;
+                    case 'not-presenting':
+                        this.onAREnd();
+                        break;
+                }
+            }
+
+            onARSessionStart() {
+                console.log('✅ AR Session Started');
+                this.isARActive = true;
+                this.showStatus('AR 모드 활성화됨');
+                this.sendToFlutter('ar_session_started');
+
+                // Flutter에서 제어하지 않는 경우 자동으로 배치 모드 활성화
+                if (!this.isFlutterConnected) {
+                    setTimeout(() => {
+                        this.enablePlacementMode();
+                    }, 2000);
+                }
+            }
+
+            onObjectPlaced() {
+                console.log('✅ Object Placed');
+                this.isPlacementMode = false;
+                this.showStatus('교회 모델이 배치되었습니다');
+                this.sendToFlutter('object_placed');
+                this.clearHitIndicators();
+            }
+
+            onARFailed() {
+                console.error('❌ AR Failed');
+                this.showStatus('AR 실행 실패');
+                this.sendToFlutter('ar_failed');
+                this.resetUI();
+            }
+
+            onAREnd() {
+                console.log('📱 AR Session Ended');
+                this.isARActive = false;
+                this.showStatus('AR 세션 종료됨');
+                this.sendToFlutter('ar_session_ended');
+                this.resetUI();
+            }
+
+            enablePlacementMode() {
+                this.isPlacementMode = true;
+                this.showStatus('배치 모드 활성화 - 화면을 터치하세요');
+                this.sendToFlutter('placement_mode_enabled');
+
+                // 가상 hit test points 시뮬레이션
+                this.simulateHitTesting();
+            }
+
+            disablePlacementMode() {
+                this.isPlacementMode = false;
+                this.clearHitIndicators();
+                this.sendToFlutter('placement_mode_disabled');
+            }
+
+            simulateHitTesting() {
+                if (!this.isPlacementMode || !this.isARActive) return;
+
+                // 화면에 가상 hit test points 표시
+                this.clearHitIndicators();
+
+                const points = [
+                    { x: this.modelViewer.clientWidth * 0.3, y: this.modelViewer.clientHeight * 0.6 },
+                    { x: this.modelViewer.clientWidth * 0.5, y: this.modelViewer.clientHeight * 0.7 },
+                    { x: this.modelViewer.clientWidth * 0.7, y: this.modelViewer.clientHeight * 0.6 }
+                ];
+
+                points.forEach((point, index) => {
+                    setTimeout(() => {
+                        this.addHitIndicator(point.x, point.y);
+                    }, index * 500);
+                });
+
+                // 지속적인 업데이트
+                setTimeout(() => {
+                    if (this.isPlacementMode) {
+                        this.simulateHitTesting();
+                    }
+                }, 3000);
+            }
+
+            addHitIndicator(x, y) {
+                const indicator = document.createElement('div');
+                indicator.className = 'hit-indicator';
+                indicator.style.left = `${x}px`;
+                indicator.style.top = `${y}px`;
+                this.placementOverlay.appendChild(indicator);
+
+                // 5초 후 제거
+                setTimeout(() => {
+                    if (indicator.parentNode) {
+                        indicator.parentNode.removeChild(indicator);
+                    }
+                }, 5000);
+            }
+
+            clearHitIndicators() {
+                this.placementOverlay.innerHTML = '';
+            }
+
+            handlePlacementTouch(event) {
+                if (!this.isPlacementMode || !this.isARActive) return;
+
+                const rect = this.modelViewer.getBoundingClientRect();
+                const x = event.clientX - rect.left;
+                const y = event.clientY - rect.top;
+
+                console.log(`📍 Placement touch at: ${x}, ${y}`);
+
+                // Flutter에 터치 정보 전송
+                this.sendToFlutter('placement_touch', { x: x, y: y });
+
+                // 배치 시도
+                this.attemptPlacement(x, y);
+            }
+
+            attemptPlacement(x, y) {
+                // 배치 성공 시뮬레이션
+                const success = Math.random() > 0.3; // 70% 성공률
+
+                if (success) {
+                    this.showStatus('배치 성공!');
+                    setTimeout(() => {
+                        this.onObjectPlaced();
+                    }, 1000);
+                } else {
+                    this.showStatus('평면을 찾을 수 없습니다. 다시 시도하세요');
+                }
+            }
+
+            simulatePlacement(x, y) {
+                // Flutter에서 호출하는 배치 시뮬레이션
+                this.attemptPlacement(x, y);
+            }
+
+            updateModel(modelUrl) {
+                this.modelViewer.src = modelUrl;
+                this.sendToFlutter('model_updated', { url: modelUrl });
+            }
+
+            hideControls() {
+                document.getElementById('ar-controls').style.display = 'none';
+            }
+
+            showControls() {
+                document.getElementById('ar-controls').style.display = 'flex';
+            }
+
+            resetAR() {
+                this.disablePlacementMode();
+                this.resetUI();
+                this.sendToFlutter('ar_reset');
+            }
+
+            showStatus(message) {
+                this.statusMessage.textContent = message;
+                this.statusMessage.classList.add('show');
+
+                setTimeout(() => {
+                    this.statusMessage.classList.remove('show');
+                }, 3000);
+            }
+
+            resetUI() {
+                this.startArBtn.classList.remove('hidden');
+                this.isARActive = false;
+                this.isPlacementMode = false;
+                this.clearHitIndicators();
+            }
+        }
+
+        // 시스템 초기화
+        document.addEventListener('DOMContentLoaded', () => {
+            const flutterBridge = new FlutterARBridge();
+
+            // 전역 접근을 위한 설정
+            window.flutterARBridge = flutterBridge;
+
+            // Flutter에서 직접 호출할 수 있는 전역 함수들
+            window.startAR = () => flutterBridge.startAR();
+            window.enablePlacement = () => flutterBridge.enablePlacementMode();
+            window.disablePlacement = () => flutterBridge.disablePlacementMode();
+            window.resetAR = () => flutterBridge.resetAR();
+
+            console.log('🚀 Flutter AR Bridge Ready');
+        });
+
+        // Flutter 통신 테스트용 함수들
+        window.testFlutterBridge = {
+            simulateFlutterMessage: (action, data) => {
+                if (window.flutterARBridge) {
+                    window.flutterARBridge.handleFlutterAction(action, data);
+                }
+            },
+            sendTestMessage: () => {
+                if (window.flutterARBridge) {
+                    window.flutterARBridge.sendToFlutter('test_message', { test: 'success' });
+                }
+            },
+            startARTest: () => {
+                window.startAR();
+            }
+        };
+    </script>
+</body>
+</html>

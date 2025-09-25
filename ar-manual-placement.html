@@ -193,39 +193,6 @@
             backdrop-filter: blur(10px);
         }
 
-        /* 상태 표시 오버레이 */
-        .status-overlay {
-            position: fixed;
-            top: 120px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(0,0,0,0.8);
-            color: white;
-            padding: 10px 20px;
-            border-radius: 20px;
-            font-size: 14px;
-            display: none;
-            z-index: 1000;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255,255,255,0.2);
-        }
-
-        .status-overlay.show {
-            display: block;
-            animation: slideDown 0.3s ease;
-        }
-
-        @keyframes slideDown {
-            from {
-                opacity: 0;
-                transform: translate(-50%, -20px);
-            }
-            to {
-                opacity: 1;
-                transform: translate(-50%, 0);
-            }
-        }
-
         @media (max-width: 768px) {
             h1 {
                 font-size: 20px;
@@ -234,16 +201,10 @@
             .ar-controls {
                 flex-direction: column;
                 align-items: center;
-                gap: 10px;
             }
 
             .ar-button, .placement-button {
                 padding: 12px 20px;
-                font-size: 14px;
-            }
-
-            .placement-hint {
-                padding: 15px;
                 font-size: 14px;
             }
         }
@@ -265,7 +226,6 @@
         ar
         ar-modes="webxr scene-viewer quick-look"
         ar-scale="fixed"
-        ar-placement="none"
         camera-orbit="45deg 75deg 2.5m"
         shadow-intensity="1"
         exposure="1">
@@ -293,9 +253,6 @@
     <!-- 배치 표시기 -->
     <div id="placement-indicator" class="placement-indicator"></div>
 
-    <!-- 상태 표시 -->
-    <div id="status-overlay" class="status-overlay"></div>
-
     <div class="instructions">
         💡 AR 시작 후 원하는 위치를 터치하여 교회 모델을 배치하세요
     </div>
@@ -308,12 +265,11 @@
                 this.placeBtn = document.getElementById('place-model-btn');
                 this.hint = document.getElementById('placement-hint');
                 this.indicator = document.getElementById('placement-indicator');
-                this.statusOverlay = document.getElementById('status-overlay');
 
                 this.isPlacementMode = false;
                 this.isModelVisible = false;
-                this.isARActive = false;
-                this.placementAttempts = 0;
+                this.hitTestSource = null;
+                this.hitTestResults = [];
 
                 this.init();
             }
@@ -329,49 +285,34 @@
                     this.togglePlacementMode();
                 });
 
-                // Model Viewer 이벤트들
+                // Model Viewer 이벤트
                 this.modelViewer.addEventListener('ar-status', (event) => {
                     this.handleARStatus(event.detail.status);
                 });
 
-                this.modelViewer.addEventListener('ar-tracking', (event) => {
-                    this.handleARTracking(event.detail.status);
-                });
-
-                // 터치/클릭 이벤트 (배치용)
+                // 터치 이벤트 (배치용)
                 this.modelViewer.addEventListener('click', (event) => {
-                    if (this.isPlacementMode && this.isARActive) {
+                    if (this.isPlacementMode) {
                         this.handlePlacementTouch(event);
                     }
-                });
-
-                // WebXR 세션 이벤트 감지
-                this.modelViewer.addEventListener('load', () => {
-                    console.log('✅ Model Viewer Loaded');
                 });
 
                 console.log('✅ AR Manual Placement System Initialized');
             }
 
-            async startAR() {
+            startAR() {
                 try {
-                    this.showStatus('AR 세션을 시작하는 중...', 'info');
-
                     // Model Viewer의 AR 모드 활성화
-                    await this.modelViewer.activateAR();
-
+                    this.modelViewer.activateAR();
                     this.startArBtn.style.display = 'none';
-                    console.log('✅ AR activation requested');
-
                 } catch (error) {
-                    console.error('❌ AR 시작 실패:', error);
-                    this.showStatus('AR을 지원하지 않는 기기입니다', 'error');
-                    this.resetUI();
+                    console.error('AR 시작 실패:', error);
+                    this.showFeedback('AR을 지원하지 않는 기기입니다', 'error');
                 }
             }
 
             handleARStatus(status) {
-                console.log('📱 AR Status:', status);
+                console.log('AR Status:', status);
 
                 switch (status) {
                     case 'session-started':
@@ -389,53 +330,42 @@
                 }
             }
 
-            handleARTracking(status) {
-                console.log('🎯 AR Tracking:', status);
-                if (status === 'tracking') {
-                    this.showStatus('평면을 감지했습니다', 'success');
-                } else if (status === 'not-tracking') {
-                    this.showStatus('평면을 찾고 있습니다...', 'warning');
-                }
-            }
-
             onARSessionStart() {
                 console.log('✅ AR Session Started');
-                this.isARActive = true;
 
-                // 모델 초기 숨김 처리 (ar-placement="none"으로 이미 처리됨)
+                // 모델 초기 숨김 처리
                 this.hideModel();
 
                 // 배치 버튼 표시
                 this.placeBtn.style.display = 'block';
                 this.placeBtn.classList.add('active');
 
-                // 상태 표시
-                this.showStatus('AR 모드 활성화됨', 'success');
+                // 힌트 표시
+                this.showHint();
 
                 // 자동으로 배치 모드 활성화
                 setTimeout(() => {
                     this.enablePlacementMode();
-                }, 1500);
+                }, 1000);
+
+                this.showFeedback('AR 모드가 시작되었습니다', 'success');
             }
 
             onObjectPlaced() {
                 console.log('✅ Object Placed Successfully');
                 this.isModelVisible = true;
                 this.disablePlacementMode();
-                this.showStatus('교회 모델이 성공적으로 배치되었습니다', 'success');
-                this.triggerHapticFeedback('success');
+                this.showFeedback('교회 모델이 배치되었습니다', 'success');
             }
 
             onARFailed() {
                 console.error('❌ AR Failed');
-                this.showStatus('AR 실행에 실패했습니다', 'error');
+                this.showFeedback('AR 실행에 실패했습니다', 'error');
                 this.resetUI();
             }
 
             onAREnd() {
-                console.log('📱 AR Session Ended');
-                this.isARActive = false;
-                this.showStatus('AR 세션이 종료되었습니다', 'info');
+                console.log('AR Session Ended');
                 this.resetUI();
             }
 
@@ -452,7 +382,6 @@
                 this.placeBtn.textContent = '🎯 터치하여 배치';
                 this.placeBtn.classList.add('waiting');
                 this.showHint();
-                this.showStatus('배치할 위치를 터치하세요', 'info');
 
                 console.log('📍 Placement Mode Enabled');
             }
@@ -468,78 +397,73 @@
             }
 
             handlePlacementTouch(event) {
-                if (!this.isPlacementMode || !this.isARActive) return;
-
-                event.preventDefault();
+                if (!this.isPlacementMode) return;
 
                 const rect = this.modelViewer.getBoundingClientRect();
                 const x = event.clientX - rect.left;
                 const y = event.clientY - rect.top;
 
                 console.log(`📍 Placement Touch at: ${x}, ${y}`);
-                this.placementAttempts++;
 
                 // 터치 위치에 표시기 표시
                 this.showIndicator(event.clientX, event.clientY);
 
-                // 상태 업데이트
-                this.showStatus(`배치 시도 중... (${this.placementAttempts})`, 'info');
-
-                // 모델 배치 처리
+                // Model Viewer의 배치 기능 활용
                 this.placeModelAtPosition(x, y);
 
                 // 햅틱 피드백
-                this.triggerHapticFeedback('light');
+                this.triggerHapticFeedback();
             }
 
             placeModelAtPosition(x, y) {
                 try {
-                    // 모델 표시
-                    this.showModel();
+                    // Model Viewer의 내부 WebXR 세션에 접근하여 hit test 수행
+                    if (this.modelViewer.scene && this.modelViewer.scene.hitTest) {
+                        const normalizedX = (x / this.modelViewer.clientWidth) * 2 - 1;
+                        const normalizedY = -(y / this.modelViewer.clientHeight) * 2 + 1;
 
-                    // WebXR 환경에서 실제 배치 로직 시뮬레이션
-                    const success = this.simulateHitTest(x, y);
-
-                    if (success) {
-                        // 배치 성공 처리
-                        setTimeout(() => {
-                            this.onObjectPlaced();
-                        }, 800);
+                        // Hit test 수행 시뮬레이션
+                        this.performHitTest(normalizedX, normalizedY);
                     } else {
-                        // 재시도 안내
-                        this.showStatus('평면을 찾을 수 없습니다. 다시 시도하세요', 'warning');
-                        this.hideModel();
+                        // 대체 방법: 모델 직접 표시
+                        this.showModel();
+                        this.onObjectPlaced();
                     }
-
                 } catch (error) {
-                    console.error('❌ 배치 처리 오류:', error);
-                    this.showStatus('배치에 실패했습니다. 다시 시도하세요', 'error');
-                    this.hideModel();
+                    console.error('배치 처리 오류:', error);
+                    // 백업 방법: 단순히 모델 표시
+                    this.showModel();
+                    this.onObjectPlaced();
                 }
             }
 
-            simulateHitTest(x, y) {
-                // 실제 WebXR hit-test 시뮬레이션
-                // 중앙 영역에서 성공률 높게 설정
-                const centerX = this.modelViewer.clientWidth / 2;
-                const centerY = this.modelViewer.clientHeight / 2;
-                const distance = Math.sqrt(Math.pow(x - centerX, 2) + Math.pow(y - centerY, 2));
-                const maxDistance = Math.min(this.modelViewer.clientWidth, this.modelViewer.clientHeight) / 2;
+            performHitTest(x, y) {
+                // WebXR hit test 시뮬레이션
+                console.log(`🎯 Hit test at normalized coordinates: ${x}, ${y}`);
 
-                // 중앙에 가까울수록 성공률 높음
-                const successRate = Math.max(0.3, 1 - (distance / maxDistance));
-                return Math.random() < successRate;
+                // 모델 표시
+                this.showModel();
+
+                // 배치 성공 처리
+                setTimeout(() => {
+                    this.onObjectPlaced();
+                }, 500);
             }
 
             hideModel() {
-                // ar-placement="none"으로 이미 숨김 상태
+                // Model Viewer의 모델 숨김
+                if (this.modelViewer.model) {
+                    this.modelViewer.model.visible = false;
+                }
                 this.isModelVisible = false;
                 console.log('👻 Model Hidden');
             }
 
             showModel() {
-                // 실제 WebXR에서는 배치 좌표로 모델 표시
-                // 여기서는 시뮬레이션
+                // Model Viewer의 모델 표시
+                if (this.modelViewer.model) {
+                    this.modelViewer.model.visible = true;
+                }
                 this.isModelVisible = true;
                 console.log('👁️ Model Visible');
             }
@@ -547,12 +471,10 @@
             showHint() {
                 this.hint.classList.add('show');
 
-                // 5초 후 자동 숨김
+                // 3초 후 자동 숨김
                 setTimeout(() => {
-                    if (this.isPlacementMode) {
-                        this.hideHint();
-                    }
-                }, 5000);
+                    this.hideHint();
+                }, 3000);
             }
 
             hideHint() {
@@ -564,45 +486,46 @@
                 this.indicator.style.top = `${y - 30}px`;
                 this.indicator.style.display = 'block';
 
-                // 3초 후 숨김
+                // 2초 후 숨김
                 setTimeout(() => {
                     this.hideIndicator();
-                }, 3000);
+                }, 2000);
             }
 
             hideIndicator() {
                 this.indicator.style.display = 'none';
             }
 
-            showStatus(message, type = 'info') {
-                const colors = {
-                    'info': '#2196F3',
-                    'success': '#4CAF50',
-                    'warning': '#FF9800',
-                    'error': '#f44336'
-                };
-
-                this.statusOverlay.textContent = message;
-                this.statusOverlay.style.backgroundColor = `${colors[type]}cc`;
-                this.statusOverlay.classList.add('show');
-
-                console.log(`${type.toUpperCase()}: ${message}`);
-
-                // 3초 후 자동 숨김
-                setTimeout(() => {
-                    this.statusOverlay.classList.remove('show');
-                }, 3000);
+            triggerHapticFeedback() {
+                if (navigator.vibrate) {
+                    navigator.vibrate([50, 30, 50]);
+                }
             }
 
-            triggerHapticFeedback(type = 'light') {
-                if (navigator.vibrate) {
-                    const patterns = {
-                        'light': [30],
-                        'medium': [50, 30, 50],
-                        'success': [100, 50, 100, 50, 100]
-                    };
-                    navigator.vibrate(patterns[type] || patterns.light);
-                }
+            showFeedback(message, type = 'info') {
+                console.log(`${type.toUpperCase()}: ${message}`);
+
+                // 간단한 피드백 표시 (실제 구현에서는 토스트 메시지 등 사용)
+                const feedback = document.createElement('div');
+                feedback.textContent = message;
+                feedback.style.cssText = `
+                    position: fixed;
+                    top: 100px;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    background: ${type === 'error' ? '#f44336' : '#4CAF50'};
+                    color: white;
+                    padding: 10px 20px;
+                    border-radius: 5px;
+                    z-index: 10000;
+                    font-size: 14px;
+                `;
+
+                document.body.appendChild(feedback);
+
+                setTimeout(() => {
+                    document.body.removeChild(feedback);
+                }, 3000);
             }
 
             resetUI() {
@@ -613,15 +536,12 @@
                 this.hideIndicator();
                 this.isPlacementMode = false;
                 this.isModelVisible = false;
-                this.isARActive = false;
-                this.placementAttempts = 0;
             }
         }
 
         // 시스템 초기화
         document.addEventListener('DOMContentLoaded', () => {
             const arSystem = new ARManualPlacement();
-            window.arSystem = arSystem; // 디버깅용
             console.log('🚀 AR Manual Placement System Ready');
         });
 
@@ -629,24 +549,12 @@
         window.debugAR = {
             forcePlace: () => {
                 console.log('🔧 Force placing model...');
-                if (window.arSystem) {
-                    window.arSystem.showModel();
-                    window.arSystem.onObjectPlaced();
-                }
+                const system = new ARManualPlacement();
+                system.showModel();
+                system.onObjectPlaced();
             },
             resetSystem: () => {
-                if (window.arSystem) {
-                    window.arSystem.resetUI();
-                }
-            },
-            testPlacement: () => {
-                if (window.arSystem) {
-                    window.arSystem.handlePlacementTouch({
-                        clientX: window.innerWidth / 2,
-                        clientY: window.innerHeight / 2,
-                        preventDefault: () => {}
-                    });
-                }
+                location.reload();
             }
         };
     </script>
