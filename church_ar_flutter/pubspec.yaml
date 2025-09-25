@@ -36,6 +36,9 @@ dependencies:
   cupertino_icons: ^1.0.8
   shared_preferences: ^2.2.2
 
+  # 🚀 Model Viewer Plus for pure Flutter 3D models and AR
+  model_viewer_plus: ^1.7.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
