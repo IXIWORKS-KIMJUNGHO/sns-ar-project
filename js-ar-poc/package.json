@@ -1,0 +1,21 @@
+{
+  "name": "js-ar-poc",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-basic-ssl": "^2.1.0",
+    "vite": "^7.1.7"
+  },
+  "dependencies": {
+    "@google/model-viewer": "^4.1.0",
+    "ar.js": "^2.2.2",
+    "jsqr": "^1.4.0",
+    "three": "^0.180.0"
+  }
+}

@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Onnuri AR - 온누리 교회 체험</title>
+
+    <!-- iOS 전체 화면 모드 (PWA Standalone) -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Onnuri AR">
+
+    <!-- AR.js + Three.js (지연 로드) -->
+    <script defer src="https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.min.js"></script>
+    <script defer src="https://raw.githack.com/AR-js-org/AR.js/master/three.js/build/ar.js"></script>
+
+    <!-- model-viewer (모듈은 자동 defer) -->
+    <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js"></script>
+
+    <!-- Phosphor Icons (필수 - 온보딩 아이콘용) -->
+    <script src="https://unpkg.com/@phosphor-icons/web@2.0.3"></script>
+
+    <!-- Pretendard Font -->
+    <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+
+    <!-- Design System (인라인으로 변경) -->
+
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            font-family: var(--font-primary);
+            width: 100%;
+            height: 100%;
+        }
+
+        #ar-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+
+        /* 로딩 화면 */
+        #loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: none; /* 초기에는 숨김 - 온보딩 완료 후 표시 */
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+            color: white;
+            padding: 20px;
+            overflow-y: auto; /* 가이드 콘텐츠를 위한 스크롤 가능 */
+        }
+
+        #loading-screen h2 {
+            font-size: var(--font-size-3xl);
+            font-weight: var(--font-weight-bold);
+            margin-bottom: var(--spacing-lg);
+            text-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+
+        #loading-screen p {
+            font-size: var(--font-size-base);
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .spinner {
+            border: 4px solid rgba(255,255,255,0.3);
+            border-top: 4px solid white;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin-top: 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* 디버그 정보 */
+        #debugInfo {
+            position: fixed;
+            top: var(--spacing-lg);
+            left: var(--spacing-lg);
+            right: var(--spacing-lg);
+            background: var(--overlay-darkest);
+            color: white;
+            padding: var(--spacing-md) var(--spacing-lg);
+            border-radius: var(--radius-lg);
+            font-size: var(--font-size-sm);
+            z-index: 9999;
+            pointer-events: none;
+            text-align: center;
+            box-shadow: var(--shadow-lg);
+        }
+
+        /* AR 모드 인디케이터 - 제거됨 */
+        #mode-indicator {
+            display: none;
+        }
+
+        /* 온보딩 다시보기 버튼 - 제거됨 */
+        #replay-onboarding-btn {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 온보딩 다시보기 버튼 -->
+    <button id="replay-onboarding-btn"><i class="ph-bold ph-book-open"></i> 사용법 다시보기</button>
+
+    <!-- 로딩 화면 -->
+    <div id="loading-screen">
+        <h2><i class="ph-bold ph-church"></i> Onnuri AR</h2>
+        <p id="loading-message">시스템 초기화 중...</p>
+        <div class="spinner"></div>
+    </div>
+
+    <!-- AR 컨테이너 -->
+    <div id="ar-container"></div>
+
+    <!-- 디버그 정보 -->
+    <div id="debugInfo">AR 시스템 준비 중...</div>
+
+    <!-- AR 모드 인디케이터 -->
+    <div id="mode-indicator">플랫폼 감지 중...</div>
+
+    <!-- 메인 스크립트 -->
+    <script type="module">
+        import { platformDetector } from './src/platform-detector.js';
+        import { OnboardingScreen } from './src/onboarding-screen.js';
+        import { CameraPermissionScreen } from './src/camera-permission-screen.js';
+
+        let currentMode = null;
+        let arApp = null;
+        let onboarding = null;
+        let cameraPermission = null;
+
+        /**
+         * WebView 경고 메시지 표시 (Promise 반환)
+         */
+        function showWebViewWarning(appName) {
+            return new Promise((resolve) => {
+                const overlay = document.createElement('div');
+                overlay.id = 'webview-warning';
+                overlay.style.cssText = `
+                    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                    background: rgba(0,0,0,0.95); z-index: 200000;
+                    display: flex; align-items: center; justify-content: center;
+                    padding: 20px; font-family: var(--font-primary);
+                `;
+                overlay.innerHTML = `
+                    <div style="max-width: 400px; text-align: center; color: white;">
+                        <i class="ph-fill ph-warning-circle" style="font-size: 64px; color: #FFC107;"></i>
+                        <h2 style="margin-top: 24px; font-size: 22px; font-weight: bold;">
+                            ${appName}에서는<br>AR 기능이 제한됩니다
+                        </h2>
+                        <p style="margin-top: 20px; font-size: 16px; line-height: 1.6; opacity: 0.9;">
+                            최상의 AR 체험을 위해<br>
+                            <strong>Chrome 또는 Safari</strong> 브라우저로 열어주세요
+                        </p>
+                        <div style="margin-top: 16px; padding: 16px; background: rgba(255,193,7,0.2); border-radius: 12px; font-size: 14px;">
+                            <i class="ph-bold ph-info"></i> 우측 상단 [...] 메뉴 → "브라우저로 열기"
+                        </div>
+                        <div style="margin-top: 24px; display: flex; gap: 12px;">
+                            <button id="webview-continue" style="flex: 1; padding: 16px; background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.3); border-radius: 12px; font-size: 16px; font-weight: bold;">
+                                그냥 계속
+                            </button>
+                            <button id="webview-guide" style="flex: 1; padding: 16px; background: var(--color-accent); color: white; border: none; border-radius: 12px; font-size: 16px; font-weight: bold;">
+                                여는 방법
+                            </button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(overlay);
+
+                document.getElementById('webview-continue').onclick = () => {
+                    overlay.remove();
+                    resolve(true);
+                };
+
+                document.getElementById('webview-guide').onclick = () => {
+                    overlay.remove();
+                    resolve(false);
+                };
+            });
+        }
+
+        /**
+         * WebView 가이드 전체 화면
+         */
+        function showWebViewGuide(appName) {
+            document.body.innerHTML = `
+                <div style="padding: 40px 20px; text-align: center; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; min-height: 100vh; display: flex; flex-direction: column; justify-content: center; font-family: var(--font-primary);">
+                    <i class="ph-fill ph-browsers" style="font-size: 80px;"></i>
+                    <h2 style="margin-top: 24px; font-size: 26px; font-weight: bold;">AR 체험을 위해<br>브라우저로 열어주세요</h2>
+
+                    <div style="margin-top: 32px; background: rgba(255,255,255,0.15); padding: 28px; border-radius: 20px; text-align: left; backdrop-filter: blur(10px);">
+                        <h3 style="margin-bottom: 20px; font-size: 18px;">
+                            <i class="ph-bold ph-number-circle-one"></i> ${appName}에서 브라우저로 여는 방법
+                        </h3>
+                        <ol style="line-height: 2.2; font-size: 16px; padding-left: 24px;">
+                            <li>화면 우측 상단 <strong>[...]</strong> 또는 <strong>[⋮]</strong> 메뉴 클릭</li>
+                            <li><strong>"브라우저로 열기"</strong> 또는<br><strong>"Safari로 열기"</strong> 선택</li>
+                            <li>AR 체험 시작! 🎉</li>
+                        </ol>
+                    </div>
+
+                    <div style="margin-top: 24px; padding: 20px; background: rgba(255,255,255,0.1); border-radius: 16px; font-size: 14px;">
+                        <i class="ph-bold ph-lightbulb"></i> 브라우저에서 QR 스캔 및 AR 모델 배치가 정상 작동합니다
+                    </div>
+
+                    <button onclick="location.reload()" style="margin-top: 32px; padding: 18px 36px; background: white; color: #667eea; border: none; border-radius: 16px; font-size: 18px; font-weight: bold;">
+                        <i class="ph-bold ph-arrow-clockwise"></i> 다시 시도하기
+                    </button>
+                </div>
+            `;
+        }
+
+        /**
+         * Chrome 업데이트 필요 전체 화면
+         */
+        function showChromeUpdateWarning(version) {
+            document.body.innerHTML = `
+                <div style="padding: 40px 20px; text-align: center; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; min-height: 100vh; display: flex; flex-direction: column; justify-content: center; font-family: var(--font-primary);">
+                    <i class="ph-fill ph-warning-circle" style="font-size: 80px; color: #FFC107;"></i>
+                    <h2 style="margin-top: 24px; font-size: 26px; font-weight: bold;">Chrome 업데이트 필요</h2>
+
+                    <div style="margin-top: 32px; background: rgba(255,255,255,0.15); padding: 28px; border-radius: 20px; backdrop-filter: blur(10px);">
+                        <p style="font-size: 18px; margin-bottom: 24px;">
+                            AR 기능 사용을 위해<br>
+                            <strong>Chrome 90 이상</strong> 필요
+                        </p>
+                        <div style="display: flex; justify-content: space-around;">
+                            <div>
+                                <div style="font-size: 14px; opacity: 0.8;">현재</div>
+                                <div style="font-size: 32px; font-weight: bold; color: #FFC107;">v${version}</div>
+                            </div>
+                            <div style="font-size: 32px;">→</div>
+                            <div>
+                                <div style="font-size: 14px; opacity: 0.8;">필요</div>
+                                <div style="font-size: 32px; font-weight: bold; color: #00D9A0;">v90+</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button onclick="window.open('https://play.google.com/store/apps/details?id=com.android.chrome', '_blank')" style="margin-top: 32px; padding: 18px 36px; background: white; color: #667eea; border: none; border-radius: 16px; font-size: 18px; font-weight: bold;">
+                        <i class="ph-bold ph-google-chrome-logo"></i> Chrome 업데이트
+                    </button>
+
+                    <button onclick="location.reload()" style="margin-top: 16px; padding: 16px 32px; background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.3); border-radius: 16px; font-size: 16px;">
+                        다시 시도
+                    </button>
+                </div>
+            `;
+        }
+
+        /**
+         * 홈으로 돌아가기 (글로벌 함수)
+         */
+        window.returnToHome = function() {
+            console.log('[Main] 🏠 Returning to home...');
+
+            // 1. 모든 AR 요소 정리
+            const modelViewer = document.getElementById('ar-model-viewer');
+            const arButton = document.getElementById('custom-ar-button');
+            const closeBtn = document.getElementById('model-viewer-close-btn');
+            const qrUI = document.getElementById('qr-scanner-ui');
+            const loadingScreen = document.getElementById('loading-screen');
+
+            if (modelViewer) modelViewer.style.display = 'none';
+            if (arButton) arButton.remove();
+            if (closeBtn) closeBtn.remove();
+            if (qrUI) qrUI.remove();
+            if (loadingScreen) loadingScreen.style.display = 'none';
+
+            // 2. 온보딩 홈 화면 표시
+            if (onboarding) {
+                onboarding.showHome();
+            }
+
+            console.log('[Main] ✅ Returned to home');
+        };
+
+        async function init() {
+            console.log('[Main] 🚀 Onnuri AR 시작...');
+
+            // 0. WebView 및 Chrome 버전 체크 먼저
+            const platform = platformDetector.platform;
+
+            // WebView 감지 시 경고
+            if (platform.isWebView) {
+                const appName = platformDetector.getWebViewAppName();
+                const shouldContinue = await showWebViewWarning(appName);
+
+                if (!shouldContinue) {
+                    showWebViewGuide(appName);
+                    return;
+                }
+            }
+
+            // Android Chrome 버전 체크
+            if (platform.isAndroid && platform.isChrome && !platformDetector.isChromeSufficient()) {
+                const version = platformDetector.getChromeVersion();
+                showChromeUpdateWarning(version);
+                return;
+            }
+
+            // 1. 카메라 권한 요청
+            cameraPermission = new CameraPermissionScreen();
+            const permissionGranted = await cameraPermission.show();
+
+            if (!permissionGranted) {
+                console.log('[Main] ❌ Camera permission denied - App blocked');
+                return;
+            }
+
+            console.log('[Main] ✅ Camera permission granted - Starting app');
+
+            // 2. 온보딩 인스턴스 생성
+            onboarding = new OnboardingScreen();
+
+            // 3. 온보딩 항상 표시
+            onboarding.show(() => {
+                console.log('[Main] Onboarding complete, starting AR...');
+
+                const loadingScreen = document.getElementById('loading-screen');
+                if (loadingScreen) {
+                    loadingScreen.style.display = 'flex';
+                }
+
+                startARSystem(true);
+            });
+
+            setupReplayButton();
+        }
+
+        /**
+         * 온보딩 다시보기 버튼 설정 (온보딩이 항상 표시되므로 불필요)
+         */
+        function setupReplayButton() {
+            // 온보딩이 항상 표시되므로 다시보기 버튼은 제거
+            const replayBtn = document.getElementById('replay-onboarding-btn');
+            if (replayBtn) {
+                replayBtn.remove();
+            }
+        }
+
+        async function startARSystem(autoStartAR = false) {
+            // 플랫폼 감지
+            updateLoadingMessage('플랫폼 분석 중...');
+            const platformInfo = platformDetector.getPlatformInfo();
+            console.log('[Main] Platform:', platformInfo);
+
+            // 최적 모드 결정
+            currentMode = await detectBestMode();
+            console.log('[Main] Selected mode:', currentMode);
+
+            // 모드별 초기화
+            if (currentMode === 'android-webxr') {
+                await initAndroidMode();
+            } else if (currentMode === 'ios-quicklook') {
+                await initIOSMode(autoStartAR);
+            } else {
+                await initFallbackMode();
+            }
+
+            // 로딩 화면 숨김
+            setTimeout(() => {
+                const loadingScreen = document.getElementById('loading-screen');
+                if (loadingScreen) {
+                    loadingScreen.style.display = 'none';
+                }
+            }, 1000);
+        }
+
+        /**
+         * 최적 모드 감지
+         */
+        async function detectBestMode() {
+            const platform = platformDetector.platform;
+
+            // iOS 모든 브라우저 → AR Quick Look
+            // (iOS의 모든 브라우저는 WebKit 기반으로 AR Quick Look 지원)
+            if (platform.isIOS) {
+                return 'ios-quicklook';
+            }
+
+            // Android Chrome + WebXR 지원 → WebXR + QR
+            if (platform.isAndroid && platform.isChrome) {
+                const supportsWebXR = await platformDetector.checkWebXRSupport();
+                if (supportsWebXR) {
+                    return 'android-webxr';
+                }
+            }
+
+            // 기타 → AR.js 폴백
+            return 'fallback-arjs';
+        }
+
+        /**
+         * Android 모드: AR.js QR + WebXR Anchor
+         */
+        async function initAndroidMode() {
+            console.log('[Main] Android WebXR + QR 모드');
+
+            updateLoadingMessage('<i class="ph-bold ph-android-logo"></i> Android AR 시스템 초기화 중...');
+            updateModeIndicator('<i class="ph-bold ph-android-logo"></i> Android (WebXR + QR)', 'rgba(76,175,80,0.95)');
+
+            const container = document.getElementById('ar-container');
+            arApp = new AndroidQRAnchoring(container);
+
+            try {
+                await arApp.start();
+                updateDebugInfo('✅ Android AR 준비 완료! QR 마커를 비춰주세요.');
+            } catch (error) {
+                console.error('[Main] ❌ Android mode failed:', error);
+                updateDebugInfo('⚠️ Android AR 초기화 실패. AR.js 폴백으로 전환 중...');
+                await initFallbackMode();
+            }
+        }
+
+        /**
+         * iOS/Android 통합 모드: model-viewer with Pre-AR Guide
+         */
+        async function initIOSMode(autoStartAR = false) {
+            const isIOS = platformDetector.isIOS();
+            const platform = isIOS ? 'iOS' : 'Android';
+            const platformIcon = isIOS ? '<i class="ph-bold ph-apple-logo"></i>' : '<i class="ph-bold ph-android-logo"></i>';
+
+            console.log(`[Main] ${platform} model-viewer + Pre-AR 가이드 모드`);
+
+            updateLoadingMessage(`${platformIcon} ${platform} AR 시스템 초기화 중...`);
+            updateModeIndicator(`${platformIcon} ${platform} (QR + model-viewer AR)`, 'rgba(102,126,234,0.95)');
+
+            // model-viewer import
+            const { modelViewerAR } = await import('./src/model-viewer-ar-manager.js');
+
+            // model-viewer 초기화 (기본 모델로 초기화, QR 스캔 시 동적 변경)
+            modelViewerAR.initialize();
+
+            // QR 스캐너 시작
+            const { IOSQRScanner } = await import('./src/ios-qr-scanner.js');
+            const qrScanner = new IOSQRScanner();
+
+            const container = document.getElementById('ar-container');
+
+            // QR 감지 시 체크마크 → 3D 뷰어 표시
+            qrScanner.onQRFound = (qrLocation, photoDataURL) => {
+                console.log('[Main] QR found, showing 3D model viewer...');
+
+                // 3D 모델 뷰어 표시 (커스텀 AR 버튼 포함)
+                modelViewerAR.showModelViewer(qrLocation, photoDataURL);
+            };
+
+            // QR 스캐너 시작
+            if (autoStartAR) {
+                await qrScanner.start(container);
+                updateDebugInfo('✅ QR 코드를 스캔하세요');
+            } else {
+                updateDebugInfo(`✅ ${platform} AR 준비 완료!`);
+            }
+
+            // arApp에 QR 스캐너 저장 (cleanup용)
+            arApp = qrScanner;
+        }
+
+        /**
+         * 폴백 모드: AR.js만
+         */
+        async function initFallbackMode() {
+            console.log('[Main] AR.js 폴백 모드');
+
+            updateLoadingMessage('<i class="ph-bold ph-device-mobile"></i> 기본 AR 시스템 초기화 중...');
+            updateModeIndicator('<i class="ph-bold ph-device-mobile"></i> 기본 모드 (AR.js)', 'rgba(255,152,0,0.95)');
+
+            // AR.js 기본 구현 (추후 구현)
+            updateDebugInfo('⚠️ 기본 AR 모드는 곧 지원될 예정입니다.');
+        }
+
+        /**
+         * UI 업데이트 헬퍼
+         */
+        function updateLoadingMessage(message) {
+            const el = document.getElementById('loading-message');
+            if (el) el.textContent = message;
+        }
+
+        function updateDebugInfo(message) {
+            const el = document.getElementById('debugInfo');
+            if (el) el.textContent = message;
+        }
+
+        function updateModeIndicator(text, color) {
+            // 모드 인디케이터 제거됨 - 함수는 유지 (호출 제거하지 않기 위해)
+            // const el = document.getElementById('mode-indicator');
+            // if (el) {
+            //     el.textContent = text;
+            //     el.style.background = color;
+            // }
+        }
+
+        // 페이지 로드 시 초기화
+        window.addEventListener('load', () => {
+            console.log('[Main] 🚀 Page loaded, starting initialization...');
+            init();
+        });
+    </script>
+</body>
+</html>
