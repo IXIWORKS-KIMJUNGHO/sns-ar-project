@@ -69,5 +69,6 @@ tmp/
 *.cache
 *.meta
 
-# Claude Code specific (already tracked in this project)
-# .claude/
+# Claude Code specific
+.claude/
+claudedocs/
