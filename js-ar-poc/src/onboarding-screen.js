@@ -157,8 +157,8 @@ export class OnboardingScreen {
         }
 
         .step-icon {
-          font-size: 80px;
-          margin-bottom: var(--spacing-xl);
+          font-size: 56px;
+          margin-bottom: var(--spacing-lg);
           animation: bounce 1s ease-in-out infinite;
         }
 
@@ -184,15 +184,14 @@ export class OnboardingScreen {
         }
 
         .step-list {
-          background: var(--overlay-medium);
-          border: 1px solid rgba(255, 255, 255, 0.25);
-          border-radius: var(--radius-xl);
-          padding: var(--spacing-lg) var(--spacing-xl);
+          background: rgba(255, 255, 255, 0.15);
+          border: 1px solid rgba(255, 255, 255, 0.2);
+          border-radius: 20px;
+          padding: 24px 20px;
           margin-bottom: var(--spacing-xl);
           width: 100%;
-          backdrop-filter: blur(15px);
-          -webkit-backdrop-filter: blur(15px);
-          box-shadow: var(--shadow-xl);
+          backdrop-filter: blur(10px);
+          -webkit-backdrop-filter: blur(10px);
           animation: slideUp 0.4s ease-out;
         }
 
@@ -210,7 +209,7 @@ export class OnboardingScreen {
 
         .step-number {
           background: white;
-          color: var(--color-primary-light);
+          color: #667eea;
           width: 32px;
           height: 32px;
           border-radius: var(--radius-full);
@@ -263,7 +262,7 @@ export class OnboardingScreen {
 
         .btn-skip, .btn-next, .btn-start {
           flex: 1;
-          padding: var(--spacing-lg) var(--spacing-xl);
+          padding: 16px var(--spacing-xl);
           border: none;
           border-radius: var(--radius-full);
           font-family: var(--font-primary);
@@ -275,7 +274,7 @@ export class OnboardingScreen {
         }
 
         .btn-skip {
-          background: var(--overlay-medium);
+          background: rgba(255, 255, 255, 0.2);
           color: white;
           border: 1px solid rgba(255, 255, 255, 0.3);
           backdrop-filter: blur(10px);
@@ -285,26 +284,28 @@ export class OnboardingScreen {
         .btn-skip:hover {
           background: rgba(255, 255, 255, 0.25);
           border-color: rgba(255, 255, 255, 0.4);
+          transform: translateY(-2px);
         }
 
         .btn-skip:active {
-          transform: scale(0.98);
-          background: rgba(255,255,255,0.15);
+          transform: scale(0.97);
+          background: rgba(255, 255, 255, 0.15);
         }
 
         .btn-next, .btn-start {
           background: white;
-          color: var(--color-primary-light);
+          color: #667eea;
+          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
         }
 
         .btn-next:hover, .btn-start:hover {
           transform: translateY(-2px);
-          box-shadow: var(--shadow-2xl);
+          box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
         }
 
         .btn-next:active, .btn-start:active {
-          transform: scale(0.98);
-          box-shadow: var(--shadow-md);
+          transform: scale(0.97);
+          box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
         }
 
         .highlight {
@@ -360,15 +361,20 @@ export class OnboardingScreen {
     return `
       <div class="step-icon"><i class="ph-fill ph-hand-waving"></i></div>
       <div class="step-title">환영합니다!</div>
-      <div class="step-description">
-        Onnuri AR을 통해<br>
-        <span class="highlight">3D 증강현실</span>로<br>
-        오래전 온누리 교회를 체험해보세요
-      </div>
       <div class="step-list">
         <div class="step-list-item">
+          <span class="step-number"><i class="ph-fill ph-church"></i></span>
+          <span class="step-text">
+            <strong>3D 증강현실로</strong><br>
+            온누리 교회를 체험하세요
+          </span>
+        </div>
+        <div class="step-list-item">
           <span class="step-number"><i class="ph-bold ph-device-mobile"></i></span>
-          <span class="step-text">앱 설치 없이 브라우저만으로</span>
+          <span class="step-text">
+            <strong>앱 설치 없이</strong><br>
+            브라우저만으로
+          </span>
         </div>
       </div>
     `;

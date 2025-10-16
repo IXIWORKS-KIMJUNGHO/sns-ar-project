@@ -108,17 +108,24 @@ export class IOSQRScanner {
       // 이미지 데이터 추출
       const imageData = this.ctx.getImageData(0, 0, this.canvas.width, this.canvas.height);
 
-      // jsQR로 QR 코드 감지
+      // jsQR로 QR 코드 감지 (inversion 옵션 개선)
       const qrCode = jsQR(imageData.data, imageData.width, imageData.height, {
-        inversionAttempts: 'dontInvert'
+        inversionAttempts: 'attemptBoth' // 명암 반전 시도
       });
 
       if (qrCode) {
         console.log('[QRScanner] ✅ QR Code detected:', qrCode.data);
+        console.log('[QRScanner] QR location:', qrCode.location);
+        console.log('[QRScanner] Image dimensions:', imageData.width, 'x', imageData.height);
         this.hideScanningIndicator();
         this.hideRetryHelp();
         this.handleQRFound(qrCode);
         return; // QR 발견 시 종료
+      } else {
+        // QR 스캔 실패 시 주기적으로 로그 (10프레임마다)
+        if (this.frameCount % 30 === 0) {
+          console.log('[QRScanner] Scanning... (frame:', this.frameCount, ', attempts:', this.scanAttempts, ')');
+        }
       }
 
       // QR 코드 없으면 시도 카운트 증가
@@ -227,10 +234,16 @@ export class IOSQRScanner {
    * 스캐너 UI 표시
    */
   showScannerUI() {
+    console.log('[QRScanner] showScannerUI() called');
+
     // 기존 UI 제거
     const existing = document.getElementById('qr-scanner-ui');
-    if (existing) existing.remove();
+    if (existing) {
+      console.log('[QRScanner] Removing existing UI');
+      existing.remove();
+    }
 
+    console.log('[QRScanner] Creating new scanner UI...');
     const ui = document.createElement('div');
     ui.id = 'qr-scanner-ui';
     ui.innerHTML = `
@@ -423,10 +436,14 @@ export class IOSQRScanner {
     `;
 
     document.body.appendChild(ui);
+    console.log('[QRScanner] ✅ Scanner UI appended to body');
 
     // 비디오 엘리먼트에 스트림 연결
     const videoElement = document.getElementById('qr-scanner-video');
+    console.log('[QRScanner] Video element found:', !!videoElement);
+    console.log('[QRScanner] Stream available:', !!this.stream);
     videoElement.srcObject = this.stream;
+    console.log('[QRScanner] ✅ Video stream connected to video element');
 
     // 취소 버튼 (홈으로 돌아가기)
     document.getElementById('qr-scanner-cancel').addEventListener('click', () => {
@@ -741,9 +758,12 @@ export class IOSQRScanner {
       this.canvas = null;
     }
 
-    // UI 제거
+    // UI 제거 (AR Quick Look 종료 시 재출현 방지)
     const ui = document.getElementById('qr-scanner-ui');
-    if (ui) ui.remove();
+    if (ui) {
+      ui.remove();
+      console.log('[QRScanner] ✅ QR Scanner UI removed from DOM');
+    }
 
     // 재시도 도움말 제거
     this.hideRetryHelp();

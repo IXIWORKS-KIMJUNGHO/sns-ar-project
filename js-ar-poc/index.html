@@ -10,11 +10,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Onnuri AR">
 
-    <!-- AR.js + Three.js (지연 로드) -->
-    <script defer src="https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.min.js"></script>
-    <script defer src="https://raw.githack.com/AR-js-org/AR.js/master/three.js/build/ar.js"></script>
-
-    <!-- model-viewer (모듈은 자동 defer) -->
+    <!-- model-viewer (Google 3D viewer for AR) -->
     <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js"></script>
 
     <!-- Phosphor Icons (필수 - 온보딩 아이콘용) -->
@@ -26,6 +22,67 @@
     <!-- Design System (인라인으로 변경) -->
 
     <style>
+        :root {
+            /* Colors */
+            --color-primary: #667eea;
+            --color-accent: #00d9a0;
+            --color-danger: #ff4444;
+            --color-warning: #FFC107;
+
+            /* Gradients */
+            --gradient-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+
+            /* Spacing */
+            --spacing-xs: 4px;
+            --spacing-sm: 8px;
+            --spacing-md: 16px;
+            --spacing-lg: 24px;
+            --spacing-xl: 32px;
+            --spacing-2xl: 40px;
+
+            /* Typography */
+            --font-primary: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif;
+            --font-size-xs: 12px;
+            --font-size-sm: 14px;
+            --font-size-base: 16px;
+            --font-size-lg: 18px;
+            --font-size-xl: 20px;
+            --font-size-2xl: 24px;
+            --font-size-3xl: 28px;
+            --font-weight-normal: 400;
+            --font-weight-medium: 500;
+            --font-weight-bold: 700;
+
+            /* Border Radius */
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+            --radius-xl: 20px;
+            --radius-full: 9999px;
+
+            /* Shadows */
+            --shadow-sm: 0 2px 4px rgba(0,0,0,0.1);
+            --shadow-md: 0 4px 8px rgba(0,0,0,0.15);
+            --shadow-lg: 0 8px 16px rgba(0,0,0,0.2);
+            --shadow-xl: 0 12px 24px rgba(0,0,0,0.25);
+            --shadow-2xl: 0 16px 32px rgba(0,0,0,0.3);
+
+            /* Overlays */
+            --overlay-light: rgba(0,0,0,0.5);
+            --overlay-medium: rgba(0,0,0,0.7);
+            --overlay-darkest: rgba(0,0,0,0.9);
+
+            /* Line Heights */
+            --line-height-tight: 1.25;
+            --line-height-normal: 1.5;
+            --line-height-relaxed: 1.75;
+
+            /* Transitions */
+            --transition-fast: 0.15s ease;
+            --transition-base: 0.2s ease;
+            --transition-slow: 0.3s ease;
+        }
+
         * { margin: 0; padding: 0; box-sizing: border-box; }
         html, body {
             margin: 0;
@@ -42,22 +99,9 @@
             position: relative;
         }
 
-        /* 로딩 화면 */
+        /* 로딩 화면 - 사용하지 않음 */
         #loading-screen {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            display: none; /* 초기에는 숨김 - 온보딩 완료 후 표시 */
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 10000;
-            color: white;
-            padding: 20px;
-            overflow-y: auto; /* 가이드 콘텐츠를 위한 스크롤 가능 */
+            display: none !important;
         }
 
         #loading-screen h2 {
@@ -296,54 +340,61 @@
         async function init() {
             console.log('[Main] 🚀 Onnuri AR 시작...');
 
-            // 0. WebView 및 Chrome 버전 체크 먼저
-            const platform = platformDetector.platform;
+            try {
+                // 0. WebView 및 Chrome 버전 체크 먼저
+                const platform = platformDetector.platform;
+                console.log('[Main] Platform detected:', platform);
 
-            // WebView 감지 시 경고
-            if (platform.isWebView) {
-                const appName = platformDetector.getWebViewAppName();
-                const shouldContinue = await showWebViewWarning(appName);
+                // WebView 감지 시 경고
+                if (platform.isWebView) {
+                    const appName = platformDetector.getWebViewAppName();
+                    console.log('[Main] WebView detected:', appName);
+                    const shouldContinue = await showWebViewWarning(appName);
 
-                if (!shouldContinue) {
-                    showWebViewGuide(appName);
+                    if (!shouldContinue) {
+                        showWebViewGuide(appName);
+                        return;
+                    }
+                }
+
+                // Android Chrome 버전 체크
+                if (platform.isAndroid && platform.isChrome && !platformDetector.isChromeSufficient()) {
+                    const version = platformDetector.getChromeVersion();
+                    showChromeUpdateWarning(version);
                     return;
                 }
-            }
 
-            // Android Chrome 버전 체크
-            if (platform.isAndroid && platform.isChrome && !platformDetector.isChromeSufficient()) {
-                const version = platformDetector.getChromeVersion();
-                showChromeUpdateWarning(version);
-                return;
-            }
+                // 1. 카메라 권한 요청
+                console.log('[Main] 📸 Requesting camera permission...');
+                cameraPermission = new CameraPermissionScreen();
+                const permissionGranted = await cameraPermission.show();
+                console.log('[Main] Camera permission result:', permissionGranted);
 
-            // 1. 카메라 권한 요청
-            cameraPermission = new CameraPermissionScreen();
-            const permissionGranted = await cameraPermission.show();
-
-            if (!permissionGranted) {
-                console.log('[Main] ❌ Camera permission denied - App blocked');
-                return;
-            }
-
-            console.log('[Main] ✅ Camera permission granted - Starting app');
-
-            // 2. 온보딩 인스턴스 생성
-            onboarding = new OnboardingScreen();
-
-            // 3. 온보딩 항상 표시
-            onboarding.show(() => {
-                console.log('[Main] Onboarding complete, starting AR...');
-
-                const loadingScreen = document.getElementById('loading-screen');
-                if (loadingScreen) {
-                    loadingScreen.style.display = 'flex';
+                if (!permissionGranted) {
+                    console.log('[Main] ❌ Camera permission denied - App blocked');
+                    return;
                 }
 
-                startARSystem(true);
-            });
+                console.log('[Main] ✅ Camera permission granted - Starting onboarding...');
 
-            setupReplayButton();
+                // 2. 온보딩 인스턴스 생성
+                console.log('[Main] 📖 Creating onboarding screen...');
+                onboarding = new OnboardingScreen();
+
+                // 3. 온보딩 항상 표시
+                console.log('[Main] 📖 Showing onboarding...');
+                onboarding.show(() => {
+                    console.log('[Main] ✅ Onboarding complete, starting QR scanner...');
+
+                    // 로딩 화면 없이 바로 QR 스캔 시작
+                    startARSystem(true);
+                });
+
+                setupReplayButton();
+            } catch (error) {
+                console.error('[Main] ❌ Fatal error during initialization:', error);
+                alert('초기화 중 오류가 발생했습니다. 페이지를 새로고침해주세요.\n\n에러: ' + error.message);
+            }
         }
 
         /**
@@ -359,7 +410,6 @@
 
         async function startARSystem(autoStartAR = false) {
             // 플랫폼 감지
-            updateLoadingMessage('플랫폼 분석 중...');
             const platformInfo = platformDetector.getPlatformInfo();
             console.log('[Main] Platform:', platformInfo);
 
@@ -367,7 +417,10 @@
             currentMode = await detectBestMode();
             console.log('[Main] Selected mode:', currentMode);
 
-            // 모드별 초기화
+            // 디버그 정보 업데이트
+            updateDebugInfo('✅ QR 코드를 스캔하세요');
+
+            // 모드별 초기화 (로딩 화면 없이 바로 시작)
             if (currentMode === 'android-webxr') {
                 await initAndroidMode();
             } else if (currentMode === 'ios-quicklook') {
@@ -375,14 +428,6 @@
             } else {
                 await initFallbackMode();
             }
-
-            // 로딩 화면 숨김
-            setTimeout(() => {
-                const loadingScreen = document.getElementById('loading-screen');
-                if (loadingScreen) {
-                    loadingScreen.style.display = 'none';
-                }
-            }, 1000);
         }
 
         /**
@@ -415,9 +460,6 @@
         async function initAndroidMode() {
             console.log('[Main] Android WebXR + QR 모드');
 
-            updateLoadingMessage('<i class="ph-bold ph-android-logo"></i> Android AR 시스템 초기화 중...');
-            updateModeIndicator('<i class="ph-bold ph-android-logo"></i> Android (WebXR + QR)', 'rgba(76,175,80,0.95)');
-
             const container = document.getElementById('ar-container');
             arApp = new AndroidQRAnchoring(container);
 
@@ -441,9 +483,6 @@
 
             console.log(`[Main] ${platform} model-viewer + Pre-AR 가이드 모드`);
 
-            updateLoadingMessage(`${platformIcon} ${platform} AR 시스템 초기화 중...`);
-            updateModeIndicator(`${platformIcon} ${platform} (QR + model-viewer AR)`, 'rgba(102,126,234,0.95)');
-
             // model-viewer import
             const { modelViewerAR } = await import('./src/model-viewer-ar-manager.js');
 
@@ -465,10 +504,14 @@
             };
 
             // QR 스캐너 시작
+            console.log('[Main] autoStartAR:', autoStartAR);
             if (autoStartAR) {
-                await qrScanner.start(container);
+                console.log('[Main] Starting QR scanner...');
+                const started = await qrScanner.start(container);
+                console.log('[Main] QR scanner started:', started);
                 updateDebugInfo('✅ QR 코드를 스캔하세요');
             } else {
+                console.log('[Main] Skipping QR scanner auto-start');
                 updateDebugInfo(`✅ ${platform} AR 준비 완료!`);
             }
 
@@ -481,9 +524,6 @@
          */
         async function initFallbackMode() {
             console.log('[Main] AR.js 폴백 모드');
-
-            updateLoadingMessage('<i class="ph-bold ph-device-mobile"></i> 기본 AR 시스템 초기화 중...');
-            updateModeIndicator('<i class="ph-bold ph-device-mobile"></i> 기본 모드 (AR.js)', 'rgba(255,152,0,0.95)');
 
             // AR.js 기본 구현 (추후 구현)
             updateDebugInfo('⚠️ 기본 AR 모드는 곧 지원될 예정입니다.');

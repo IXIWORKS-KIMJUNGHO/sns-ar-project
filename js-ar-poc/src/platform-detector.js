@@ -32,7 +32,11 @@ export class PlatformDetector {
 
       // iOS WebView/Safari View Controller 감지
       if (/iphone|ipad|ipod/.test(ua)) {
-        if (!(/Safari/.test(ua))) return true; // Safari 없으면 WebView
+        // Safari 문자열이 없으면 WebView (소문자로 검색)
+        if (!(/safari/.test(ua))) return true;
+
+        // 특정 앱 WebView 확인
+        if (/KAKAOTALK|Instagram|FBAN|FBAV|Line/i.test(navigator.userAgent)) return true;
       }
 
       return false;

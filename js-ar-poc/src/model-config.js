@@ -12,8 +12,8 @@ export const MODEL_MAPPING = {
     name: '온누리 교회 01',
     description: '온누리 교회 40주년 기념 모델 1',
     glb: '/assets/models/church-model-01.glb',
-    usdz: '/assets/models/church-model-01.usdz',
-    scale: '1 1 1',
+    usdz: '/assets/models/church-model-01-rescale.usdz',
+    scale: '0.3 0.3 0.3',
     preload: true
   },
 

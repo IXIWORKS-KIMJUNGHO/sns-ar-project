@@ -35,18 +35,24 @@ export class ModelViewerARManager {
     }
 
     // model-viewer 엘리먼트 생성
-    this.createModelViewer(glbPath, usdzPath);
+    this.createModelViewer(glbPath, usdzPath, this.currentModel?.scale);
 
     // 이벤트 리스너 설정
     this.setupEventListeners();
+
+    // 나머지 모델들 백그라운드 프리로드
+    this.preloadOtherModels();
 
     console.log('[ModelViewerAR] ✅ Initialized');
   }
 
   /**
    * model-viewer 엘리먼트 생성
+   * @param {string} glbPath - GLB 모델 경로
+   * @param {string} usdzPath - USDZ 모델 경로
+   * @param {string} scale - AR 스케일 (옵션, 예: "0.3 0.3 0.3")
    */
-  createModelViewer(glbPath, usdzPath) {
+  createModelViewer(glbPath, usdzPath, scale = null) {
     // 기존 model-viewer 제거
     const existing = document.getElementById('ar-model-viewer');
     if (existing) {
@@ -57,13 +63,39 @@ export class ModelViewerARManager {
     this.modelViewer = document.createElement('model-viewer');
     this.modelViewer.id = 'ar-model-viewer';
 
-    // 속성 설정
-    this.modelViewer.setAttribute('src', glbPath);
-    this.modelViewer.setAttribute('ios-src', usdzPath);
+    // 플랫폼 감지
+    const platform = platformDetector.getPlatformInfo();
+    const isIOS = platform.platform === 'iOS';
+
+    // 조건부 로딩: 플랫폼별로 필요한 포맷만 설정
+    if (isIOS) {
+      // iOS: USDZ만 로드 (AR Quick Look용)
+      this.modelViewer.setAttribute('ios-src', usdzPath);
+      console.log('[ModelViewerAR] 📱 iOS detected - Loading USDZ only:', usdzPath);
+    } else {
+      // Android/Desktop: GLB만 로드 (Scene Viewer/WebXR용)
+      this.modelViewer.setAttribute('src', glbPath);
+      console.log('[ModelViewerAR] 🤖 Android detected - Loading GLB only:', glbPath);
+    }
+
+    // 공통 속성 설정
     this.modelViewer.setAttribute('ar', '');
     this.modelViewer.setAttribute('ar-modes', 'webxr scene-viewer quick-look');
     this.modelViewer.setAttribute('camera-controls', '');
-    // ar-scale 제거 - 사용자가 자유롭게 크기 조절 가능하도록
+
+    // iOS AR Quick Look 프롬프트 비활성화
+    this.modelViewer.removeAttribute('ar-prompt');
+
+    // 로딩 최적화 속성
+    this.modelViewer.setAttribute('loading', 'eager'); // 즉시 로드
+    this.modelViewer.setAttribute('reveal', 'auto'); // 자동 표시
+    console.log('[ModelViewerAR] ⚡ Loading optimization: eager + auto reveal');
+
+    // ar-scale 설정 (모델별 기본 크기 지정)
+    if (scale) {
+      this.modelViewer.setAttribute('ar-scale', scale);
+      console.log('[ModelViewerAR] 📏 AR scale set:', scale);
+    }
 
     // 스타일 설정 (초기에는 숨김, showModelViewer()로 표시)
     this.modelViewer.style.display = 'none';
@@ -159,9 +191,26 @@ export class ModelViewerARManager {
     // 로딩 오버레이 표시
     this.showLoadingOverlay(modelInfo.name);
 
-    // 모델 경로 변경
-    this.modelViewer.setAttribute('src', modelInfo.glb);
-    this.modelViewer.setAttribute('ios-src', modelInfo.usdz);
+    // 플랫폼 감지
+    const platform = platformDetector.getPlatformInfo();
+    const isIOS = platform.platform === 'iOS';
+
+    // 조건부 로딩: 플랫폼별로 필요한 포맷만 변경
+    if (isIOS) {
+      // iOS: USDZ만 변경
+      this.modelViewer.setAttribute('ios-src', modelInfo.usdz);
+      console.log('[ModelViewerAR] 📱 iOS - Switching to USDZ:', modelInfo.usdz);
+    } else {
+      // Android/Desktop: GLB만 변경
+      this.modelViewer.setAttribute('src', modelInfo.glb);
+      console.log('[ModelViewerAR] 🤖 Android - Switching to GLB:', modelInfo.glb);
+    }
+
+    // AR 스케일 변경 (모델별 설정)
+    if (modelInfo.scale) {
+      this.modelViewer.setAttribute('ar-scale', modelInfo.scale);
+      console.log('[ModelViewerAR] 📏 AR scale updated:', modelInfo.scale);
+    }
 
     // 현재 모델 정보 업데이트
     this.currentModel = modelInfo;
@@ -227,6 +276,13 @@ export class ModelViewerARManager {
     }
 
     console.log('[ModelViewerAR] Showing 3D model viewer with guide overlay...');
+
+    // QR 스캐너 UI 제거 (AR Quick Look 종료 후 다시 나타나는 문제 방지)
+    const qrUI = document.getElementById('qr-scanner-ui');
+    if (qrUI) {
+      qrUI.remove();
+      console.log('[ModelViewerAR] ✅ QR Scanner UI removed');
+    }
 
     // QR 위치 정보 저장
     this.qrLocation = qrLocation;
@@ -620,7 +676,46 @@ export class ModelViewerARManager {
   }
 
   /**
+   * AR 로딩 인디케이터 표시
+   */
+  showARLoadingIndicator() {
+    const existing = document.getElementById('ar-loading-indicator');
+    if (existing) return;
+
+    const indicator = document.createElement('div');
+    indicator.id = 'ar-loading-indicator';
+    indicator.style.cssText = `
+      position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      background: rgba(0,0,0,0.9); color: white;
+      padding: 24px 32px; border-radius: 16px; z-index: 10500;
+      display: flex; flex-direction: column; align-items: center; gap: 16px;
+      font-family: var(--font-primary);
+      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    `;
+    indicator.innerHTML = `
+      <i class="ph-bold ph-spinner" style="font-size: 48px; animation: spin 1s linear infinite;"></i>
+      <div style="font-size: 16px; font-weight: bold;">AR 준비 중...</div>
+      <style>
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      </style>
+    `;
+    document.body.appendChild(indicator);
+  }
+
+  /**
+   * AR 로딩 인디케이터 제거
+   */
+  hideARLoadingIndicator() {
+    const indicator = document.getElementById('ar-loading-indicator');
+    if (indicator) indicator.remove();
+  }
+
+  /**
    * AR 실행 (가이드 없이 바로 실행)
+   * 모델 로드 완료 확인 후 AR 활성화
    */
   async launchARWithGuide() {
     try {
@@ -632,18 +727,81 @@ export class ModelViewerARManager {
         button.remove();
       }
 
-      // 2. 3D 뷰어 숨김
+      // 2. 모델 로드 완료 확인 (방법 1: 모델 로드 검증)
+      if (!this.modelViewer.loaded) {
+        console.log('[ModelViewerAR] ⏳ Model not loaded yet, waiting...');
+
+        // 로딩 인디케이터 표시
+        this.showARLoadingIndicator();
+
+        // 모델 로드 완료 대기 (최대 10초)
+        await this.waitForModelLoad(10000);
+
+        // 로딩 인디케이터 제거
+        this.hideARLoadingIndicator();
+      }
+
+      console.log('[ModelViewerAR] ✅ Model loaded, ready for AR');
+
+      // 3. 3D 뷰어 숨김
       this.modelViewer.style.display = 'none';
 
-      // 3. AR 즉시 활성화 (가이드는 QR 스캔 후 이미 표시됨)
+      // 4. AR 즉시 활성화 (가이드는 QR 스캔 후 이미 표시됨)
       this.modelViewer.activateAR();
       console.log('[ModelViewerAR] ✅ AR activated');
 
     } catch (error) {
       console.error('[ModelViewerAR] Failed to launch AR:', error);
+
+      // 로딩 인디케이터 제거
+      this.hideARLoadingIndicator();
+
       // 에러 발생 시 3D 뷰어와 버튼 복구
       this.restoreViewer();
     }
+  }
+
+  /**
+   * 모델 로드 완료 대기
+   * @param {number} timeout - 최대 대기 시간 (ms)
+   * @returns {Promise<boolean>}
+   */
+  waitForModelLoad(timeout = 10000) {
+    return new Promise((resolve, reject) => {
+      // 이미 로드된 경우 즉시 반환
+      if (this.modelViewer.loaded) {
+        resolve(true);
+        return;
+      }
+
+      let timeoutId;
+
+      // 로드 완료 이벤트 리스너
+      const onLoad = () => {
+        clearTimeout(timeoutId);
+        console.log('[ModelViewerAR] ✅ Model load completed');
+        resolve(true);
+      };
+
+      // 에러 이벤트 리스너
+      const onError = (event) => {
+        clearTimeout(timeoutId);
+        console.error('[ModelViewerAR] ❌ Model load failed:', event);
+        reject(new Error('Model load failed'));
+      };
+
+      // 이벤트 리스너 등록
+      this.modelViewer.addEventListener('load', onLoad, { once: true });
+      this.modelViewer.addEventListener('error', onError, { once: true });
+
+      // 타임아웃 설정
+      timeoutId = setTimeout(() => {
+        this.modelViewer.removeEventListener('load', onLoad);
+        this.modelViewer.removeEventListener('error', onError);
+        console.warn('[ModelViewerAR] ⚠️ Model load timeout');
+        reject(new Error('Model load timeout'));
+      }, timeout);
+    });
   }
 
   /**
@@ -792,6 +950,76 @@ export class ModelViewerARManager {
         setTimeout(() => reminder.remove(), 300);
       }
     }, 3000);
+  }
+
+  /**
+   * 나머지 모델들 백그라운드 프리로드
+   * 현재 로드된 모델을 제외한 모든 모델을 브라우저 캐시에 미리 로드
+   */
+  preloadOtherModels() {
+    console.log('[ModelViewerAR] 🔄 Starting background preload...');
+
+    // 현재 모델을 제외한 나머지 모델들 가져오기
+    const modelsToPreload = Object.values(MODEL_MAPPING).filter(
+      model => model.id !== this.currentModel?.id
+    );
+
+    console.log(`[ModelViewerAR] Preloading ${modelsToPreload.length} models in background`);
+
+    // 플랫폼에 따라 적절한 포맷만 프리로드 (조건부 로딩)
+    const platform = platformDetector.getPlatformInfo();
+    const isIOS = platform.platform === 'iOS';
+
+    console.log(`[ModelViewerAR] Platform: ${isIOS ? 'iOS (USDZ only)' : 'Android (GLB only)'}`);
+
+    modelsToPreload.forEach((model, index) => {
+      // 플랫폼별 필요한 포맷만 프리로드 (불필요한 다운로드 제거)
+      const modelUrl = isIOS ? model.usdz : model.glb;
+      const formatType = isIOS ? 'USDZ' : 'GLB';
+
+      // 필요한 포맷만 프리로드 (즉시 병렬 시작)
+      this.preloadAsset(modelUrl, 'prefetch', `${model.name} (${formatType})`, 0);
+
+      console.log(`[ModelViewerAR] 📥 Queued: ${model.name} - ${formatType} only`);
+    });
+
+    console.log('[ModelViewerAR] ✅ Conditional preload initiated (50% bandwidth saved)');
+  }
+
+  /**
+   * 개별 에셋 프리로드 (지연 로딩 지원)
+   * @param {string} url - 프리로드할 파일 URL
+   * @param {string} rel - link rel 속성 (prefetch 또는 preload)
+   * @param {string} name - 모델 이름 (로깅용)
+   * @param {number} delay - 프리로드 시작 지연 시간 (ms)
+   */
+  preloadAsset(url, rel = 'prefetch', name = '', delay = 0) {
+    setTimeout(() => {
+      // 이미 프리로드된 URL인지 확인
+      const existing = document.querySelector(`link[href="${url}"]`);
+      if (existing) {
+        console.log(`[ModelViewerAR] ⏭️ Already preloaded: ${name}`);
+        return;
+      }
+
+      const link = document.createElement('link');
+      link.rel = rel;
+      link.href = url;
+      link.as = 'fetch';
+      link.crossOrigin = 'anonymous';
+
+      // 프리로드 성공/실패 이벤트
+      link.onload = () => {
+        console.log(`[ModelViewerAR] ✅ Preloaded: ${name} (${(url.length / 1024).toFixed(1)}KB URL)`);
+      };
+
+      link.onerror = () => {
+        console.warn(`[ModelViewerAR] ⚠️ Preload failed: ${name}`);
+      };
+
+      document.head.appendChild(link);
+      console.log(`[ModelViewerAR] 🔄 Preloading: ${name}...`);
+    }, delay);
   }
 
   /**
