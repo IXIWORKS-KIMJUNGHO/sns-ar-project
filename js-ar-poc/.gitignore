@@ -26,3 +26,4 @@ dist-ssr
 # Claude AI assistant files
 .claude
 claudedocs
+.vercel
