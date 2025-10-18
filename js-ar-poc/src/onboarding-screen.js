@@ -1,6 +1,8 @@
 // Onboarding Screen Module
 // 사용자 첫 방문 시 온보딩 경험 제공
 
+import Nav from './nav.js';
+
 export class OnboardingScreen {
   constructor() {
     this.currentStep = 0;
@@ -333,7 +335,7 @@ export class OnboardingScreen {
           }
         }
       </style>
-
+      ${Nav()}
       <div class="onboarding-header">
         <h1><i class="ph-bold ph-church"></i> Onnuri AR</h1>
         <p>증강현실로 만나는 새로운 경험</p>

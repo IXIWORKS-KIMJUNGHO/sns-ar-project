@@ -3,6 +3,8 @@
  * 앱 시작 시 카메라 권한 요청 화면
  */
 
+import Nav from './nav.js';
+
 export class CameraPermissionScreen {
   constructor() {
     this.permissionGranted = false;
@@ -191,11 +193,13 @@ export class CameraPermissionScreen {
             from { opacity: 0; transform: translateY(-10px); }
             to { opacity: 1; transform: translateY(0); }
           }
+          
         </style>
+
+        ${Nav()}
 
         <div class="permission-content">
           <div class="permission-icon"><i class="ph-fill ph-camera" style="font-size: 64px;"></i></div>
-
           <h1 class="permission-title">온누리 교회 AR 체험</h1>
 
           <div class="permission-event-badge">
@@ -365,6 +369,8 @@ export class CameraPermissionScreen {
           transform: scale(0.97);
         }
       </style>
+
+      ${Nav()}
 
       <div class="blocked-icon"><i class="ph-fill ph-prohibit" style="font-size: 80px; opacity: 0.6;"></i></div>
       <h2 class="blocked-title">카메라 권한이 필요합니다</h2>

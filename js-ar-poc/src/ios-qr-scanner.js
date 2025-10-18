@@ -2,6 +2,7 @@
 // QR 코드를 스캔하고 위치를 저장하는 모듈
 
 import jsQR from 'jsqr';
+import Nav from './nav.js';
 
 export class IOSQRScanner {
   constructor() {
