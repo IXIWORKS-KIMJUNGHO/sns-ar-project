@@ -64,13 +64,38 @@ export function getModelFromQR(qrContent) {
     return MODEL_MAPPING[qrContent];
   }
 
-  // 2. URL에서 파라미터 추출 시도
+  // 2. URL에서 query parameter 추출 시도
   try {
     const url = new URL(qrContent);
-    const modelParam = url.searchParams.get('model');
 
+    // 숫자 매핑 정의
+    const numericMapping = {
+      '1': 'MODEL_CHURCH_01',
+      '2': 'MODEL_CHURCH_02',
+      '3': 'MODEL_CHURCH_03'
+    };
+
+    // 2-1. ?code=1 형식 확인 (우선순위 1)
+    const codeParam = url.searchParams.get('code');
+    if (codeParam) {
+      // 직접 매칭 시도
+      if (MODEL_MAPPING[codeParam]) {
+        console.log('[ModelConfig] ✅ URL code parameter direct match found:', codeParam);
+        return MODEL_MAPPING[codeParam];
+      }
+
+      // 숫자 매핑 시도
+      if (numericMapping[codeParam]) {
+        const key = numericMapping[codeParam];
+        console.log('[ModelConfig] ✅ URL code parameter numeric match found:', codeParam, '→', key);
+        return MODEL_MAPPING[key];
+      }
+    }
+
+    // 2-2. ?model=MODEL_CHURCH_01 형식 확인 (기존 호환성)
+    const modelParam = url.searchParams.get('model');
     if (modelParam && MODEL_MAPPING[modelParam]) {
-      console.log('[ModelConfig] ✅ URL parameter match found:', modelParam);
+      console.log('[ModelConfig] ✅ URL model parameter match found:', modelParam);
       return MODEL_MAPPING[modelParam];
     }
   } catch (e) {
