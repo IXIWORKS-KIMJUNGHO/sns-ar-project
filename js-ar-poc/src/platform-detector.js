@@ -5,8 +5,7 @@ export class PlatformDetector {
   constructor() {
     this.userAgent = navigator.userAgent.toLowerCase();
     this.platform = this.detectPlatform();
-    this.supportsWebXR = false;
-    this.supportsARjs = true; // AR.js는 모든 플랫폼 지원
+    // WebXR는 사용하지 않음 - 네이티브 AR 뷰어(Scene Viewer/Quick Look)만 사용
   }
 
   /**
@@ -54,50 +53,7 @@ export class PlatformDetector {
     };
   }
 
-  /**
-   * WebXR 지원 확인 (비동기)
-   * @returns {Promise<boolean>}
-   */
-  async checkWebXRSupport() {
-    // WebXR 지원 확인
-    if (!navigator.xr) {
-      console.log('[PlatformDetector] WebXR not supported');
-      this.supportsWebXR = false;
-      return false;
-    }
-
-    try {
-      // immersive-ar 세션 지원 확인
-      const supported = await navigator.xr.isSessionSupported('immersive-ar');
-      this.supportsWebXR = supported;
-      console.log('[PlatformDetector] WebXR immersive-ar supported:', supported);
-      return supported;
-    } catch (error) {
-      console.warn('[PlatformDetector] Error checking WebXR support:', error);
-      this.supportsWebXR = false;
-      return false;
-    }
-  }
-
-  /**
-   * 최적의 AR 모드 결정
-   * @returns {Promise<string>} 'webxr' | 'arjs'
-   */
-  async getBestARMode() {
-    await this.checkWebXRSupport();
-
-    // Android Chrome + WebXR 지원 = WebXR 모드
-    if (this.platform.isAndroid &&
-        this.platform.isChrome &&
-        this.supportsWebXR) {
-      console.log('[PlatformDetector] ✅ Best mode: WebXR (Android Chrome)');
-      return 'webxr';
-    }
-
-    // 그 외 = AR.js 폴백
-    console.log('[PlatformDetector] ⚠️ Fallback mode: AR.js');
-    return 'arjs';
-  }
+  // WebXR 관련 코드 제거됨 - 네이티브 AR 뷰어만 사용
 
   /**
    * 플랫폼 정보 출력
@@ -119,15 +75,15 @@ export class PlatformDetector {
 
   /**
    * 사용자에게 표시할 메시지 생성
-   * @param {string} mode - AR 모드 ('webxr' | 'arjs')
    * @returns {string}
    */
-  getUserMessage(mode) {
-    if (mode === 'webxr') {
-      return '🌟 고급 AR 모드: 마커 없이도 모델이 공간에 고정됩니다!';
-    } else {
-      return '📱 기본 AR 모드: 마커를 계속 보여주세요.';
+  getUserMessage() {
+    if (this.platform.isIOS) {
+      return '📱 AR Quick Look으로 체험하세요';
+    } else if (this.platform.isAndroid) {
+      return '📱 Scene Viewer로 체험하세요';
     }
+    return '📱 네이티브 AR 뷰어로 체험하세요';
   }
 
   /**
@@ -202,6 +158,25 @@ export class PlatformDetector {
     if (!this.platform.isChrome) return false;
     const version = this.getChromeVersion();
     return version >= 90; // Scene Viewer 최소 요구 버전
+  }
+
+  /**
+   * Android OS 버전 확인
+   * @returns {number} Android 버전 번호, Android가 아니면 0
+   */
+  getAndroidVersion() {
+    if (!this.platform.isAndroid) return 0;
+    const match = this.userAgent.match(/Android\s+([\d.]+)/);
+    return match ? parseFloat(match[1]) : 0;
+  }
+
+  /**
+   * Android OS 버전이 Scene Viewer에 충분한지 확인
+   * @returns {boolean}
+   */
+  isAndroidVersionSufficient() {
+    const version = this.getAndroidVersion();
+    return version >= 7.0; // Scene Viewer 최소 요구 버전 (Android 7.0 Nougat, API 24)
   }
 
   /**

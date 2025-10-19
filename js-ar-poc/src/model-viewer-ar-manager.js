@@ -22,8 +22,9 @@ export class ModelViewerARManager {
    * @param {string} usdzPath - USDZ 모델 경로 (iOS용) - 옵션
    */
   initialize(glbPath = null, usdzPath = null) {
-    console.log('[ModelViewerAR] Initializing...');
+    console.log('[ModelViewerAR] Initializing with native AR viewers only...');
     console.log('[ModelViewerAR] Platform:', platformDetector.getPlatformInfo());
+    console.log('[ModelViewerAR] AR Mode: Scene Viewer (Android) / Quick Look (iOS)');
 
     // 기본 모델로 초기화 (경로가 제공되지 않은 경우)
     if (!glbPath || !usdzPath) {
@@ -62,22 +63,23 @@ export class ModelViewerARManager {
 
     // 플랫폼 감지
     const platform = platformDetector.getPlatformInfo();
-    const isIOS = platform.platform === 'iOS';
+    const isIOS = platformDetector.isIOS();
 
     // 조건부 로딩: 플랫폼별로 필요한 포맷만 설정
     if (isIOS) {
-      // iOS: USDZ만 로드 (AR Quick Look용)
+      // iOS: USDZ만 로드 (AR Quick Look 네이티브 뷰어용)
       this.modelViewer.setAttribute('ios-src', usdzPath);
-      console.log('[ModelViewerAR] 📱 iOS detected - Loading USDZ only:', usdzPath);
+      console.log('[ModelViewerAR] 📱 iOS - Loading USDZ for AR Quick Look:', usdzPath);
     } else {
-      // Android/Desktop: GLB만 로드 (Scene Viewer/WebXR용)
+      // Android: GLB만 로드 (Scene Viewer 네이티브 뷰어용)
       this.modelViewer.setAttribute('src', glbPath);
-      console.log('[ModelViewerAR] 🤖 Android detected - Loading GLB only:', glbPath);
+      console.log('[ModelViewerAR] 🤖 Android - Loading GLB for Scene Viewer:', glbPath);
     }
 
     // 공통 속성 설정
     this.modelViewer.setAttribute('ar', '');
-    this.modelViewer.setAttribute('ar-modes', 'webxr scene-viewer quick-look');
+    // WebXR 제거: Android도 iOS처럼 네이티브 AR 뷰어(Scene Viewer)만 사용
+    this.modelViewer.setAttribute('ar-modes', 'scene-viewer quick-look');
     this.modelViewer.setAttribute('camera-controls', '');
 
     // iOS AR Quick Look 프롬프트 비활성화
@@ -190,17 +192,17 @@ export class ModelViewerARManager {
 
     // 플랫폼 감지
     const platform = platformDetector.getPlatformInfo();
-    const isIOS = platform.platform === 'iOS';
+    const isIOS = platformDetector.isIOS();
 
     // 조건부 로딩: 플랫폼별로 필요한 포맷만 변경
     if (isIOS) {
-      // iOS: USDZ만 변경
+      // iOS: USDZ만 변경 (AR Quick Look용)
       this.modelViewer.setAttribute('ios-src', modelInfo.usdz);
-      console.log('[ModelViewerAR] 📱 iOS - Switching to USDZ:', modelInfo.usdz);
+      console.log('[ModelViewerAR] 📱 iOS - Switching to USDZ for AR Quick Look:', modelInfo.usdz);
     } else {
-      // Android/Desktop: GLB만 변경
+      // Android: GLB만 변경 (Scene Viewer용)
       this.modelViewer.setAttribute('src', modelInfo.glb);
-      console.log('[ModelViewerAR] 🤖 Android - Switching to GLB:', modelInfo.glb);
+      console.log('[ModelViewerAR] 🤖 Android - Switching to GLB for Scene Viewer:', modelInfo.glb);
     }
 
     // AR 스케일 변경 (모델별 설정)
@@ -718,21 +720,53 @@ export class ModelViewerARManager {
     try {
       console.log('[ModelViewerAR] Launching AR directly...');
 
-      // 1. 커스텀 버튼 제거
+      // 1. Android 시스템 요구사항 체크
+      if (platformDetector.isAndroid()) {
+        // 1-1. Android OS 버전 체크
+        if (!platformDetector.isAndroidVersionSufficient()) {
+          const version = platformDetector.getAndroidVersion();
+          console.error('[ModelViewerAR] Android version insufficient:', version);
+          alert(`AR 기능은 Android 7.0 이상에서 사용 가능합니다.\n\n현재 버전: Android ${version}\n필요 버전: Android 7.0+`);
+          this.restoreViewer();
+          return;
+        }
+        console.log('[ModelViewerAR] ✅ Android OS version check passed');
+
+        // 1-2. Chrome 버전 체크
+        if (!platformDetector.isChromeSufficient()) {
+          const chromeVersion = platformDetector.getChromeVersion();
+          console.error('[ModelViewerAR] Chrome version insufficient:', chromeVersion);
+          alert('AR 기능은 Chrome 90 이상에서 사용 가능합니다.\n\nChrome을 최신 버전으로 업데이트해주세요.');
+          this.restoreViewer();
+          return;
+        }
+        console.log('[ModelViewerAR] ✅ Chrome version check passed');
+      }
+
+      // 2. HTTPS 체크 (프로덕션 환경)
+      if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+        console.error('[ModelViewerAR] HTTPS required for AR');
+        alert('AR 기능은 보안 연결(HTTPS)에서만 사용 가능합니다.\n\nHTTPS 환경에서 접속해주세요.');
+        this.restoreViewer();
+        return;
+      }
+      console.log('[ModelViewerAR] ✅ HTTPS check passed');
+
+      // 3. 커스텀 버튼 제거
       const button = document.getElementById('custom-ar-button');
       if (button) {
         button.remove();
       }
 
-      // 2. 모델 로드 완료 확인 (방법 1: 모델 로드 검증)
+      // 4. 모델 로드 완료 확인
       if (!this.modelViewer.loaded) {
         console.log('[ModelViewerAR] ⏳ Model not loaded yet, waiting...');
 
         // 로딩 인디케이터 표시
         this.showARLoadingIndicator();
 
-        // 모델 로드 완료 대기 (최대 10초)
-        await this.waitForModelLoad(10000);
+        // 모델 로드 완료 대기 (최대 20초 - 3G/4G 환경 고려)
+        await this.waitForModelLoad(20000);
 
         // 로딩 인디케이터 제거
         this.hideARLoadingIndicator();
@@ -740,10 +774,10 @@ export class ModelViewerARManager {
 
       console.log('[ModelViewerAR] ✅ Model loaded, ready for AR');
 
-      // 3. 3D 뷰어 숨김
+      // 5. 3D 뷰어 숨김
       this.modelViewer.style.display = 'none';
 
-      // 4. AR 즉시 활성화 (가이드는 QR 스캔 후 이미 표시됨)
+      // 6. AR 즉시 활성화 (가이드는 QR 스캔 후 이미 표시됨)
       this.modelViewer.activateAR();
       console.log('[ModelViewerAR] ✅ AR activated');
 
@@ -763,7 +797,7 @@ export class ModelViewerARManager {
    * @param {number} timeout - 최대 대기 시간 (ms)
    * @returns {Promise<boolean>}
    */
-  waitForModelLoad(timeout = 10000) {
+  waitForModelLoad(timeout = 20000) {
     return new Promise((resolve, reject) => {
       // 이미 로드된 경우 즉시 반환
       if (this.modelViewer.loaded) {

@@ -6,14 +6,14 @@
  * QR 코드 스캔 시 이 매핑을 기반으로 모델 선택
  */
 export const MODEL_MAPPING = {
-  // 온누리 교회 모델 1
+  // 온누리 교회 모델 1 (스케일 적용된 모델 사용)
   'MODEL_CHURCH_01': {
     id: 'church_01',
     name: '온누리 교회 01',
     description: '온누리 교회 40주년 기념 모델 1',
-    glb: '/assets/models/church-model-01.glb',
+    glb: '/assets/models/church-model-01-rescale.glb',
     usdz: '/assets/models/church-model-01-rescale.usdz',
-    scale: '0.3 0.3 0.3',
+    scale: '1 1 1',
     preload: true
   },
 
