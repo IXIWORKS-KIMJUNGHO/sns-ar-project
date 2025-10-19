@@ -17,27 +17,27 @@ export const MODEL_MAPPING = {
     preload: true
   },
 
-  // 온누리 교회 모델 2
-  'MODEL_CHURCH_02': {
-    id: 'church_02',
-    name: '온누리 교회 02',
-    description: '온누리 교회 40주년 기념 모델 2',
-    glb: '/assets/models/church-model-02.glb',
-    usdz: '/assets/models/church-model-02.usdz',
-    scale: '1 1 1',
-    preload: true
-  },
+  // 온누리 교회 모델 2 (현재 비활성화)
+  // 'MODEL_CHURCH_02': {
+  //   id: 'church_02',
+  //   name: '온누리 교회 02',
+  //   description: '온누리 교회 40주년 기념 모델 2',
+  //   glb: '/assets/models/church-model-02.glb',
+  //   usdz: '/assets/models/church-model-02.usdz',
+  //   scale: '1 1 1',
+  //   preload: true
+  // },
 
-  // 온누리 교회 모델 3
-  'MODEL_CHURCH_03': {
-    id: 'church_03',
-    name: '온누리 교회 03',
-    description: '온누리 교회 40주년 기념 모델 3',
-    glb: '/assets/models/church-model-03.glb',
-    usdz: '/assets/models/church-model-03.usdz',
-    scale: '1 1 1',
-    preload: true
-  }
+  // 온누리 교회 모델 3 (현재 비활성화)
+  // 'MODEL_CHURCH_03': {
+  //   id: 'church_03',
+  //   name: '온누리 교회 03',
+  //   description: '온누리 교회 40주년 기념 모델 3',
+  //   glb: '/assets/models/church-model-03.glb',
+  //   usdz: '/assets/models/church-model-03.usdz',
+  //   scale: '1 1 1',
+  //   preload: true
+  // }
 };
 
 /**
@@ -68,11 +68,11 @@ export function getModelFromQR(qrContent) {
   try {
     const url = new URL(qrContent);
 
-    // 숫자 매핑 정의
+    // 숫자 매핑 정의 (현재는 모델 1번만 활성화)
     const numericMapping = {
-      '1': 'MODEL_CHURCH_01',
-      '2': 'MODEL_CHURCH_02',
-      '3': 'MODEL_CHURCH_03'
+      '1': 'MODEL_CHURCH_01'
+      // '2': 'MODEL_CHURCH_02',  // 비활성화
+      // '3': 'MODEL_CHURCH_03'   // 비활성화
     };
 
     // 2-1. ?code=1 형식 확인 (우선순위 1)
@@ -103,14 +103,14 @@ export function getModelFromQR(qrContent) {
   }
 
   // 3. 숫자 매핑 (QR에 "1", "2", "3" 같은 번호만 있는 경우)
-  const numericMapping = {
-    '1': 'MODEL_CHURCH_01',
-    '2': 'MODEL_CHURCH_02',
-    '3': 'MODEL_CHURCH_03'
+  const numericMappingDirect = {
+    '1': 'MODEL_CHURCH_01'
+    // '2': 'MODEL_CHURCH_02',  // 비활성화
+    // '3': 'MODEL_CHURCH_03'   // 비활성화
   };
 
-  if (numericMapping[qrContent.trim()]) {
-    const key = numericMapping[qrContent.trim()];
+  if (numericMappingDirect[qrContent.trim()]) {
+    const key = numericMappingDirect[qrContent.trim()];
     console.log('[ModelConfig] ✅ Numeric mapping found:', qrContent, '→', key);
     return MODEL_MAPPING[key];
   }

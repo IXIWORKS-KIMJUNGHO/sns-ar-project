@@ -40,9 +40,6 @@ export class ModelViewerARManager {
     // 이벤트 리스너 설정
     this.setupEventListeners();
 
-    // 나머지 모델들 백그라운드 프리로드
-    this.preloadOtherModels();
-
     console.log('[ModelViewerAR] ✅ Initialized');
   }
 
@@ -952,75 +949,6 @@ export class ModelViewerARManager {
     }, 3000);
   }
 
-  /**
-   * 나머지 모델들 백그라운드 프리로드
-   * 현재 로드된 모델을 제외한 모든 모델을 브라우저 캐시에 미리 로드
-   */
-  preloadOtherModels() {
-    console.log('[ModelViewerAR] 🔄 Starting background preload...');
-
-    // 현재 모델을 제외한 나머지 모델들 가져오기
-    const modelsToPreload = Object.values(MODEL_MAPPING).filter(
-      model => model.id !== this.currentModel?.id
-    );
-
-    console.log(`[ModelViewerAR] Preloading ${modelsToPreload.length} models in background`);
-
-    // 플랫폼에 따라 적절한 포맷만 프리로드 (조건부 로딩)
-    const platform = platformDetector.getPlatformInfo();
-    const isIOS = platform.platform === 'iOS';
-
-    console.log(`[ModelViewerAR] Platform: ${isIOS ? 'iOS (USDZ only)' : 'Android (GLB only)'}`);
-
-    modelsToPreload.forEach((model, index) => {
-      // 플랫폼별 필요한 포맷만 프리로드 (불필요한 다운로드 제거)
-      const modelUrl = isIOS ? model.usdz : model.glb;
-      const formatType = isIOS ? 'USDZ' : 'GLB';
-
-      // 필요한 포맷만 프리로드 (즉시 병렬 시작)
-      this.preloadAsset(modelUrl, 'prefetch', `${model.name} (${formatType})`, 0);
-
-      console.log(`[ModelViewerAR] 📥 Queued: ${model.name} - ${formatType} only`);
-    });
-
-    console.log('[ModelViewerAR] ✅ Conditional preload initiated (50% bandwidth saved)');
-  }
-
-  /**
-   * 개별 에셋 프리로드 (지연 로딩 지원)
-   * @param {string} url - 프리로드할 파일 URL
-   * @param {string} rel - link rel 속성 (prefetch 또는 preload)
-   * @param {string} name - 모델 이름 (로깅용)
-   * @param {number} delay - 프리로드 시작 지연 시간 (ms)
-   */
-  preloadAsset(url, rel = 'prefetch', name = '', delay = 0) {
-    setTimeout(() => {
-      // 이미 프리로드된 URL인지 확인
-      const existing = document.querySelector(`link[href="${url}"]`);
-      if (existing) {
-        console.log(`[ModelViewerAR] ⏭️ Already preloaded: ${name}`);
-        return;
-      }
-
-      const link = document.createElement('link');
-      link.rel = rel;
-      link.href = url;
-      link.as = 'fetch';
-      link.crossOrigin = 'anonymous';
-
-      // 프리로드 성공/실패 이벤트
-      link.onload = () => {
-        console.log(`[ModelViewerAR] ✅ Preloaded: ${name} (${(url.length / 1024).toFixed(1)}KB URL)`);
-      };
-
-      link.onerror = () => {
-        console.warn(`[ModelViewerAR] ⚠️ Preload failed: ${name}`);
-      };
-
-      document.head.appendChild(link);
-      console.log(`[ModelViewerAR] 🔄 Preloading: ${name}...`);
-    }, delay);
-  }
 
   /**
    * 정리

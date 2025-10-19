@@ -94,19 +94,15 @@ export class OnboardingScreen {
           top: 0;
           left: 0;
           width: 100vw;
-          height: 100vh;
+          height: 100dvh;
           background: var(--gradient-primary);
           font-family: var(--font-primary);
           z-index: 100000;
           display: flex;
           flex-direction: column;
-          justify-content: flex-start;
-          align-items: center;
           color: white;
-          padding: max(40px, env(safe-area-inset-top)) 20px max(60px, env(safe-area-inset-bottom)) 20px;
-          overflow-y: auto;
-          -webkit-overflow-scrolling: touch;
           animation: fadeIn 0.5s ease-out;
+          touch-action: pan-y;
         }
 
         @keyframes fadeIn {
@@ -115,9 +111,20 @@ export class OnboardingScreen {
         }
 
         .onboarding-header {
+          flex-shrink: 0;
           text-align: center;
-          margin-bottom: 24px;
+          padding: max(40px, env(safe-area-inset-top)) 20px 24px 20px;
           width: 100%;
+        }
+
+        .onboarding-scroll-area {
+          flex: 1;
+          overflow-y: auto;
+          -webkit-overflow-scrolling: touch;
+          min-height: 0;
+          width: 100%;
+          display: flex;
+          justify-content: center;
         }
 
         .onboarding-header h1 {
@@ -136,14 +143,13 @@ export class OnboardingScreen {
         }
 
         .onboarding-content {
-          flex: 1;
           display: flex;
           flex-direction: column;
           justify-content: center;
           align-items: center;
           width: 100%;
           max-width: 500px;
-          margin-bottom: 20px;
+          padding: 20px;
           animation: slideUp 0.6s ease-out;
         }
 
@@ -161,12 +167,15 @@ export class OnboardingScreen {
         .step-icon {
           font-size: 56px;
           margin-bottom: var(--spacing-lg);
-          animation: bounce 1s ease-in-out infinite;
+          animation: bounce 1s ease-in-out 1;
+          will-change: transform;
+          transform: translateZ(0);
+          contain: layout style paint;
         }
 
         @keyframes bounce {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-10px); }
+          0%, 100% { transform: translateY(0) translateZ(0); }
+          50% { transform: translateY(-10px) translateZ(0); }
         }
 
         .step-title {
@@ -230,10 +239,13 @@ export class OnboardingScreen {
         }
 
         .onboarding-footer {
+          flex-shrink: 0;
           width: 100%;
           max-width: 500px;
-          margin-top: auto;
-          padding-top: 20px;
+          padding: 20px 20px max(20px, env(safe-area-inset-bottom)) 20px;
+          background: linear-gradient(to top, rgba(0,0,0,0.2) 0%, transparent 100%);
+          backdrop-filter: blur(5px);
+          -webkit-backdrop-filter: blur(5px);
         }
 
         .progress-dots {
@@ -276,22 +288,23 @@ export class OnboardingScreen {
         }
 
         .btn-skip {
-          background: rgba(255, 255, 255, 0.2);
+          background: rgba(255, 255, 255, 0.25);
           color: white;
-          border: 1px solid rgba(255, 255, 255, 0.3);
+          border: 2px solid white;
+          text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
           backdrop-filter: blur(10px);
           -webkit-backdrop-filter: blur(10px);
         }
 
         .btn-skip:hover {
-          background: rgba(255, 255, 255, 0.25);
-          border-color: rgba(255, 255, 255, 0.4);
+          background: rgba(255, 255, 255, 0.35);
+          border-color: white;
           transform: translateY(-2px);
         }
 
         .btn-skip:active {
           transform: scale(0.97);
-          background: rgba(255, 255, 255, 0.15);
+          background: rgba(255, 255, 255, 0.2);
         }
 
         .btn-next, .btn-start {
@@ -341,8 +354,10 @@ export class OnboardingScreen {
         <p>증강현실로 만나는 새로운 경험</p>
       </div>
 
-      <div class="onboarding-content">
-        ${steps[this.currentStep]}
+      <div class="onboarding-scroll-area">
+        <div class="onboarding-content">
+          ${steps[this.currentStep]}
+        </div>
       </div>
 
       <div class="onboarding-footer">
